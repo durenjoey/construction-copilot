@@ -11,8 +11,12 @@ export default async function DashboardLayout({
 }) {
   const session = await getServerSession(authOptions)
 
-  if (!session) {
-    redirect('/auth/signin')
+  // Redirect to signin if no session exists
+  if (!session?.user) {
+    const searchParams = new URLSearchParams({
+      callbackUrl: '/dashboard',
+    })
+    redirect(`/auth/signin?${searchParams.toString()}`)
   }
 
   return (
@@ -20,7 +24,7 @@ export default async function DashboardLayout({
       <header className="border-b">
         <div className="container flex h-16 items-center justify-between">
           <MainNav />
-          <UserNav user={session.user} />
+          {session.user && <UserNav user={session.user} />}
         </div>
       </header>
       <main className="flex-1">{children}</main>

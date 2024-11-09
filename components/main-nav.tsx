@@ -15,12 +15,6 @@ export function MainNav() {
         >
           Projects
         </Link>
-        <Link
-          href="/dashboard/lessons"
-          className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-        >
-          Lessons Learned
-        </Link>
       </nav>
     </div>
   )

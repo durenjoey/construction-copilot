@@ -1,31 +1,72 @@
+import { DefaultSession, DefaultUser } from 'next-auth'
+import { JWT } from 'next-auth/jwt'
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import { FirestoreAdapter } from '@auth/firebase-adapter'
-import { cert } from 'firebase-admin/app'
+
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id: string
+    } & DefaultSession['user']
+  }
+
+  interface User extends DefaultUser {
+    id: string
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    id?: string
+    email?: string
+  }
+}
+
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error('NEXTAUTH_SECRET is not set')
+}
 
 export const authOptions: NextAuthOptions = {
-  adapter: FirestoreAdapter({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY,
-    }),
-  }),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: '/auth/signin',
   },
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
   callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id
+    async jwt({ token, user, account }) {
+      if (account && user) {
+        // Initial sign in
+        token.id = user.id
+        token.email = user.email || undefined
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (session.user && token.id) {
+        session.user.id = token.id
+        if (token.email) {
+          session.user.email = token.email
+        }
       }
       return session
     },
+    async redirect({ url, baseUrl }) {
+      // If the url is an absolute URL and matches the base URL origin, allow it
+      if (url.startsWith(baseUrl)) return url
+      // If it's a relative URL, prefix it with the base URL
+      if (url.startsWith('/')) return `${baseUrl}${url}`
+      // Default to the dashboard
+      return `${baseUrl}/dashboard`
+    }
   },
+  debug: process.env.NODE_ENV === 'development',
 }

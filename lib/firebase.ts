@@ -20,7 +20,7 @@ const firebaseConfig = {
 }
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
-const db = getFirestore(app)
+export const db = getFirestore(app)
 
 export async function createProject(data: {
   name: string
@@ -29,6 +29,10 @@ export async function createProject(data: {
   return addDoc(collection(db, 'projects'), {
     ...data,
     createdAt: new Date().toISOString(),
+    chatHistory: [],
+    scope: null,
+    proposal: null,
+    lessonsLearned: []
   })
 }
 
