@@ -7,17 +7,17 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { FileText, Lightbulb, ClipboardList, Send, Loader2 } from 'lucide-react'
+import { FileText, ClipboardList, Send, Loader2, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChatMessage, ProjectStatus } from '@/lib/types'
 import { db } from '@/lib/firebase'
 import { onSnapshot, doc } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
 import { FileUpload } from '@/components/file-upload'
-import { LessonForm } from '@/components/lesson-form'
 import ReactMarkdown from 'react-markdown'
 
-const VALID_TABS = ['scope', 'proposal', 'lesson']
+const VALID_TABS = ['scope', 'proposal'] as const
+type ChatType = typeof VALID_TABS[number]
 
 export default function ChatPage() {
   const { projectId } = useParams()
@@ -27,7 +27,8 @@ export default function ChatPage() {
   const [project, setProject] = useState<ProjectStatus | null>(null)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('scope')
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [activeTab, setActiveTab] = useState<ChatType>('scope')
   const [attachments, setAttachments] = useState<Array<{ url: string; type: string; name: string }>>([])
   const [streamingResponse, setStreamingResponse] = useState('')
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
@@ -79,10 +80,79 @@ export default function ChatPage() {
 
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab && VALID_TABS.includes(tab)) {
-      setActiveTab(tab)
+    if (tab && VALID_TABS.includes(tab as ChatType)) {
+      setActiveTab(tab as ChatType)
+    } else {
+      // Redirect to scope chat if no valid tab is provided
+      router.push(`/dashboard/${projectId}/chat?tab=scope`)
     }
-  }, [searchParams])
+  }, [searchParams, projectId, router])
+
+  const handleTabChange = (value: string) => {
+    if (VALID_TABS.includes(value as ChatType)) {
+      setActiveTab(value as ChatType)
+      router.push(`/dashboard/${projectId}/chat?tab=${value}`)
+    }
+  }
+
+  const handleDownloadScope = async () => {
+    if (!project?.scope) {
+      toast({
+        title: 'Error',
+        description: 'No scope available to download',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsDownloading(true)
+    try {
+      const response = await fetch('/api/download/scope', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ projectId }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to download scope')
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob()
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob)
+      
+      // Create a temporary link element
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${project.name}-Scope.docx`
+      
+      // Trigger the download
+      document.body.appendChild(a)
+      a.click()
+      
+      // Clean up
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: 'Success',
+        description: 'Scope document downloaded successfully',
+      })
+    } catch (error) {
+      console.error('Error downloading scope:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to download scope document',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDownloading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -191,22 +261,38 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col">
         <div className="border-b px-4">
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="scope" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Scope
-            </TabsTrigger>
-            <TabsTrigger value="proposal" className="flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" />
-              Proposal
-            </TabsTrigger>
-            <TabsTrigger value="lesson" className="flex items-center gap-2">
-              <Lightbulb className="h-4 w-4" />
-              Lessons
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex justify-between items-center">
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="scope" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Scope
+              </TabsTrigger>
+              <TabsTrigger value="proposal" className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Proposal
+              </TabsTrigger>
+            </TabsList>
+            {activeTab === 'scope' && project.scope && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadScope}
+                disabled={isDownloading}
+                className="ml-4"
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Scope
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 flex">
@@ -349,37 +435,6 @@ export default function ChatPage() {
                   )}
                 </CardContent>
               </Card>
-            )}
-            {activeTab === 'lesson' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-lg">Lessons Learned</CardTitle>
-                  <LessonForm projectId={project.id} />
-                </div>
-                {project.lessonsLearned?.map((lesson) => (
-                  <Card key={lesson.id}>
-                    <CardHeader>
-                      <CardTitle className="text-sm">{lesson.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm">
-                        <p className="font-medium">Problem:</p>
-                        <p className="text-muted-foreground">{lesson.problem}</p>
-                        <p className="font-medium mt-2">Impact:</p>
-                        {Object.entries(lesson.impact).map(([type, { affected, details }]) => (
-                          affected && (
-                            <div key={type} className="ml-2">
-                              <p className="capitalize">{type}: {details}</p>
-                            </div>
-                          )
-                        ))}
-                        <p className="font-medium mt-2">Solution:</p>
-                        <p className="text-muted-foreground">{lesson.solution}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
             )}
           </div>
         </div>

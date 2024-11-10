@@ -16,13 +16,7 @@ Format your response in a clear, structured way with sections and bullet points.
 - Cost reasonableness
 - Risk assessment
 - Compliance with requirements
-If a proposal document is attached, analyze its contents and provide specific feedback and recommendations for improvement.`,
-  lesson: `You are a construction lessons learned analyzer. Help document:
-- What went well
-- What could be improved
-- Root causes of issues
-- Recommendations for future projects
-Focus on actionable insights and specific examples.`
+If a proposal document is attached, analyze its contents and provide specific feedback and recommendations for improvement.`
 }
 
 export async function POST(request: Request) {
@@ -105,7 +99,6 @@ export async function POST(request: Request) {
             { role: 'user', content: userMessage }
           ],
           system: systemPrompt,
-          temperature: 0.7,
           stream: true
         })
       })
@@ -142,20 +135,26 @@ export async function POST(request: Request) {
 
             for (const line of lines) {
               if (line.startsWith('data: ')) {
-                const data = line.slice(6)
-                if (data === '[DONE]') continue
-
                 try {
+                  const data = line.slice(6)
+                  if (data === '[DONE]') continue
+
                   const parsed = JSON.parse(data)
-                  if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                  // Handle Claude 3 streaming format
+                  if (parsed.type === 'message_delta' && parsed.delta?.text) {
                     aiResponse += parsed.delta.text
                     await writer.write(encoder.encode(`data: ${parsed.delta.text}\n\n`))
                   }
                 } catch (e) {
                   console.error('Error parsing chunk:', e)
+                  continue
                 }
               }
             }
+          }
+
+          if (!aiResponse) {
+            throw new Error('No response received from AI')
           }
 
           console.log('Stream completed, saving to database')
@@ -210,8 +209,15 @@ export async function POST(request: Request) {
           
           await writer.close()
         } catch (error) {
-          console.error('Stream processing error:', error)
-          await writer.abort(error as Error)
+          console.error('Stream processing error:', error instanceof Error ? error.message : 'Unknown error')
+          if (writer) {
+            try {
+              await writer.abort(new Error(error instanceof Error ? error.message : 'Stream processing failed'))
+            } catch (abortError) {
+              console.error('Error aborting writer:', abortError)
+            }
+          }
+          throw error // Re-throw to be caught by outer catch block
         }
       })()
 
@@ -224,14 +230,17 @@ export async function POST(request: Request) {
       })
 
     } catch (apiError) {
-      console.error('AI API error:', apiError)
-      throw new Error('Failed to get AI response: ' + (apiError as Error).message)
+      console.error('AI API error:', apiError instanceof Error ? apiError.message : 'Unknown error')
+      return NextResponse.json(
+        { error: 'Failed to get AI response' },
+        { status: 500 }
+      )
     }
 
   } catch (error) {
-    console.error('Chat API error:', error)
+    console.error('Chat API error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json(
-      { error: (error as Error).message || 'Failed to process message' },
+      { error: 'Failed to process message' },
       { status: 500 }
     )
   }

@@ -46,7 +46,7 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  type: 'scope' | 'proposal' | 'lesson'
+  type: 'scope' | 'proposal'
   attachments?: {
     url: string
     type: string

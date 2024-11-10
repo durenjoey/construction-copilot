@@ -35,6 +35,8 @@ export function LessonForm({ projectId }: LessonFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!projectId) return
+
     setIsSubmitting(true)
 
     try {
@@ -75,7 +77,7 @@ export function LessonForm({ projectId }: LessonFormProps) {
         solution: ''
       })
     } catch (error) {
-      console.error('Error adding lesson:', error)
+      console.error('Error adding lesson:', error instanceof Error ? error.message : 'Unknown error')
       toast({
         title: 'Error',
         description: 'Failed to add lesson learned',

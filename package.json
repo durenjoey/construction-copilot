@@ -23,6 +23,7 @@
     "@radix-ui/react-toast": "^1.2.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "docx": "^9.0.3",
     "firebase": "^10.7.0",
     "firebase-admin": "^12.0.0",
     "lucide-react": "^0.446.0",
