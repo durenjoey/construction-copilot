@@ -7,13 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FileText, ClipboardList, Lightbulb } from 'lucide-react'
 import Link from 'next/link'
 import { adminDb } from '@/lib/firebase-admin'
-import { ProjectStatus, LessonLearned } from '@/lib/types'
+import { ProjectStatus } from '@/lib/types'
 
-export default async function ProjectPage({
-  params,
-}: {
-  params: { projectId: string }
-}) {
+interface ProjectPageProps {
+  params: {
+    projectId: string
+  }
+}
+
+export default async function ProjectPage({ params }: ProjectPageProps) {
   const session = await getServerSession(authOptions)
   
   if (!session) {

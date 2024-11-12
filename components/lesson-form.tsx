@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { db } from '@/lib/firebase'
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore'
 import { LessonLearned } from '@/lib/types'
 
 interface LessonFormProps {
@@ -33,13 +33,53 @@ export function LessonForm({ projectId }: LessonFormProps) {
     solution: ''
   })
 
+  const revalidatePage = async () => {
+    try {
+      const response = await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          path: `/dashboard/${projectId}/lessons`
+        }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to revalidate page')
+      }
+      const data = await response.json()
+      console.log('Revalidation response:', data)
+    } catch (error) {
+      console.error('Error revalidating:', error)
+      throw error
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!projectId) return
+    if (!projectId) {
+      console.error('No projectId provided')
+      toast({
+        title: 'Error',
+        description: 'Project ID is missing',
+        variant: 'destructive'
+      })
+      return
+    }
 
     setIsSubmitting(true)
 
     try {
+      console.log('Starting lesson submission for project:', projectId)
+      
+      const projectRef = doc(db, 'projects', projectId)
+      
+      // Check if document exists
+      const docSnap = await getDoc(projectRef)
+      if (!docSnap.exists()) {
+        throw new Error('Project document does not exist')
+      }
+
       const lesson: LessonLearned = {
         id: Date.now().toString(),
         title: formData.title,
@@ -55,10 +95,21 @@ export function LessonForm({ projectId }: LessonFormProps) {
         createdAt: new Date().toISOString()
       }
 
-      const projectRef = doc(db, 'projects', projectId)
+      console.log('Created lesson object:', lesson)
+
+      // Get current lessons array or initialize it
+      const currentData = docSnap.data()
+      const currentLessons = currentData?.lessonsLearned || []
+      
+      // Update document with new lesson
       await updateDoc(projectRef, {
-        lessonsLearned: arrayUnion(lesson)
+        lessonsLearned: [...currentLessons, lesson]
       })
+
+      console.log('Successfully updated Firestore')
+
+      // Revalidate the page after successful update
+      await revalidatePage()
 
       toast({
         title: 'Success',
@@ -77,10 +128,14 @@ export function LessonForm({ projectId }: LessonFormProps) {
         solution: ''
       })
     } catch (error) {
-      console.error('Error adding lesson:', error instanceof Error ? error.message : 'Unknown error')
+      console.error('Error adding lesson:', error)
+      if (error instanceof Error) {
+        console.error('Error details:', error.message)
+        console.error('Error stack:', error.stack)
+      }
       toast({
         title: 'Error',
-        description: 'Failed to add lesson learned',
+        description: error instanceof Error ? error.message : 'Failed to add lesson learned',
         variant: 'destructive'
       })
     } finally {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase-admin'
-import { ChatMessage, ProjectStatus } from '@/lib/types'
+import { ChatMessage, ProjectStatus, Attachment } from '@/lib/types'
+import { Anthropic } from '@anthropic-ai/sdk'
 
 const SYSTEM_PROMPTS = {
   scope: `You are a construction project scope generator. Help create detailed, structured project scopes. Consider:
@@ -19,13 +20,21 @@ Format your response in a clear, structured way with sections and bullet points.
 If a proposal document is attached, analyze its contents and provide specific feedback and recommendations for improvement.`
 }
 
+export const maxDuration = 300 // Set max duration to 5 minutes
+export const dynamic = 'force-dynamic' // Disable static optimization
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     
     console.log('Received request body:', JSON.stringify(body, null, 2))
     
-    const { message, projectId, type, attachments } = body
+    const { message, projectId, type, attachments } = body as {
+      message: string;
+      projectId: string;
+      type: 'scope' | 'proposal';
+      attachments?: Attachment[];
+    }
 
     if (!message || !projectId || !type) {
       console.error('Missing required fields:', { message, projectId, type })
@@ -35,7 +44,8 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) {
       console.error('ANTHROPIC_API_KEY not configured')
       throw new Error('ANTHROPIC_API_KEY is not configured')
     }
@@ -57,7 +67,7 @@ export async function POST(request: Request) {
     const chatHistory = project.chatHistory || []
 
     // Prepare context for AI
-    const systemPrompt = SYSTEM_PROMPTS[type as keyof typeof SYSTEM_PROMPTS]
+    const systemPrompt = SYSTEM_PROMPTS[type]
     if (!systemPrompt) {
       console.error('Invalid chat type:', type)
       return NextResponse.json(
@@ -66,181 +76,113 @@ export async function POST(request: Request) {
       )
     }
     
-    // Format messages according to Anthropic's API specification
+    // Format messages for Claude 3.5 Sonnet
     const messages = chatHistory
-      .filter(msg => msg.type === type)
+      .filter((msg: ChatMessage) => msg.type === type)
       .slice(-10)
-      .map(msg => ({
-        role: msg.role,
-        content: msg.content + (msg.attachments ? `\n\nAttached documents:\n${msg.attachments.map(a => `- ${a.name}: ${a.url}`).join('\n')}` : '')
+      .map((msg: ChatMessage) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content + (msg.attachments ? `\n\nAttached documents:\n${msg.attachments.map((a: Attachment) => `- ${a.name}: ${a.url}`).join('\n')}` : '')
       }))
 
     // Add attachment information to the message if present
-    const userMessage = attachments 
-      ? `${message}\n\nI've attached the following documents:\n${attachments.map((a: any) => `- ${a.name}: ${a.url}`).join('\n')}`
-      : message
+    const userMessage = attachments && attachments.length > 0
+      ? `${systemPrompt}\n\n${message}\n\nI've attached the following documents:\n${attachments.map((a: Attachment) => `- ${a.name}: ${a.url}`).join('\n')}`
+      : `${systemPrompt}\n\n${message}`
 
-    console.log('Sending request to Anthropic API')
+    console.log('Initializing Anthropic client')
     
     try {
-      // Get streaming response from Anthropic
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-opus-20240229',
-          max_tokens: 1024,
-          messages: [
-            ...messages,
-            { role: 'user', content: userMessage }
-          ],
-          system: systemPrompt,
-          stream: true
-        })
+      // Initialize Anthropic client
+      const anthropic = new Anthropic({
+        apiKey,
+        maxRetries: 3
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        console.error('Anthropic API error:', error)
-        throw new Error(error.error?.message || 'Failed to get AI response')
+      console.log('Sending request to Anthropic API with model: claude-3-sonnet-20240229')
+
+      // Send request to Claude 3.5 Sonnet
+      const response = await anthropic.messages.create({
+        model: "claude-3-sonnet-20240229",
+        max_tokens: 1024,
+        messages: [
+          ...messages,
+          { role: "user", content: userMessage }
+        ],
+        temperature: 0.7,
+      })
+
+      console.log('Received response from Anthropic:', JSON.stringify(response, null, 2))
+
+      if (!response.content || !response.content[0] || !('text' in response.content[0])) {
+        console.error('Unexpected response format:', response)
+        throw new Error('Unexpected response format from AI')
       }
 
-      // Create a TransformStream for server-sent events
-      const encoder = new TextEncoder()
-      const stream = new TransformStream()
-      const writer = stream.writable.getWriter()
+      const aiResponse = response.content[0].text
 
-      // Process the streaming response
-      const reader = response.body?.getReader()
-      if (!reader) {
-        console.error('No response body from Anthropic API')
-        throw new Error('No response body')
+      // Create new user message
+      const newMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: message,
+        type,
+        ...(attachments && attachments.length > 0 && { attachments }),
+        timestamp: new Date().toISOString()
       }
 
-      let aiResponse = ''
-      
-      // Start processing the stream
-      ;(async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
+      // Create assistant message
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: aiResponse,
+        type,
+        timestamp: new Date().toISOString()
+      }
 
-            const chunk = new TextDecoder().decode(value)
-            const lines = chunk.split('\n').filter(line => line.trim() !== '')
+      // Batch write all updates
+      const batch = adminDb.batch()
 
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                try {
-                  const data = line.slice(6)
-                  if (data === '[DONE]') continue
+      // Update chat history
+      batch.update(projectRef, {
+        chatHistory: [...chatHistory, newMessage, assistantMessage]
+      })
 
-                  const parsed = JSON.parse(data)
-                  // Handle Claude 3 streaming format
-                  if (parsed.type === 'message_delta' && parsed.delta?.text) {
-                    aiResponse += parsed.delta.text
-                    await writer.write(encoder.encode(`data: ${parsed.delta.text}\n\n`))
-                  }
-                } catch (e) {
-                  console.error('Error parsing chunk:', e)
-                  continue
-                }
-              }
-            }
-          }
-
-          if (!aiResponse) {
-            throw new Error('No response received from AI')
-          }
-
-          console.log('Stream completed, saving to database')
-
-          // Save the complete response to the database
-          const assistantMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: aiResponse,
-            type,
-            timestamp: new Date().toISOString()
-          }
-
-          // Create new user message
-          const newMessage: ChatMessage = {
+      // Update specific sections based on type
+      if (type === 'scope') {
+        batch.update(projectRef, {
+          scope: {
             id: Date.now().toString(),
-            role: 'user',
-            content: message,
-            type,
-            attachments,
-            timestamp: new Date().toISOString()
+            content: aiResponse,
+            status: 'draft',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
           }
+        })
+      } else if (type === 'proposal') {
+        batch.update(projectRef, {
+          'proposal.content': aiResponse,
+          'proposal.updatedAt': new Date().toISOString()
+        })
+      }
 
-          // Batch write all updates
-          const batch = adminDb.batch()
+      await batch.commit()
+      console.log('Database updated successfully')
 
-          // Update chat history
-          batch.update(projectRef, {
-            chatHistory: [...chatHistory, newMessage, assistantMessage]
-          })
-
-          // Update specific sections based on type
-          if (type === 'scope') {
-            batch.update(projectRef, {
-              scope: {
-                id: Date.now().toString(),
-                content: aiResponse,
-                status: 'draft',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              }
-            })
-          } else if (type === 'proposal') {
-            batch.update(projectRef, {
-              'proposal.content': aiResponse,
-              'proposal.updatedAt': new Date().toISOString()
-            })
-          }
-
-          await batch.commit()
-          console.log('Database updated successfully')
-          
-          await writer.close()
-        } catch (error) {
-          console.error('Stream processing error:', error instanceof Error ? error.message : 'Unknown error')
-          if (writer) {
-            try {
-              await writer.abort(new Error(error instanceof Error ? error.message : 'Stream processing failed'))
-            } catch (abortError) {
-              console.error('Error aborting writer:', abortError)
-            }
-          }
-          throw error // Re-throw to be caught by outer catch block
-        }
-      })()
-
-      return new Response(stream.readable, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      })
+      return NextResponse.json({ message: assistantMessage })
 
     } catch (apiError) {
-      console.error('AI API error:', apiError instanceof Error ? apiError.message : 'Unknown error')
+      console.error('AI API error:', apiError instanceof Error ? apiError.message : 'Unknown error', apiError)
       return NextResponse.json(
-        { error: 'Failed to get AI response' },
+        { error: 'Failed to get AI response', details: apiError instanceof Error ? apiError.message : 'Unknown error' },
         { status: 500 }
       )
     }
 
   } catch (error) {
-    console.error('Chat API error:', error instanceof Error ? error.message : 'Unknown error')
+    console.error('Chat API error:', error instanceof Error ? error.message : 'Unknown error', error)
     return NextResponse.json(
-      { error: 'Failed to process message' },
+      { error: 'Failed to process message', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

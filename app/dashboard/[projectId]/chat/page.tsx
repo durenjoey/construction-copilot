@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { FileText, ClipboardList, Send, Loader2, Download } from 'lucide-react'
+import { FileText, ClipboardList, Send, Loader2, Download, ArrowLeft, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChatMessage, ProjectStatus } from '@/lib/types'
 import { db } from '@/lib/firebase'
@@ -15,12 +15,15 @@ import { onSnapshot, doc } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
 import { FileUpload } from '@/components/file-upload'
 import ReactMarkdown from 'react-markdown'
+import Link from 'next/link'
 
 const VALID_TABS = ['scope', 'proposal'] as const
 type ChatType = typeof VALID_TABS[number]
+const MAX_RETRIES = 3
+const RETRY_DELAY = 1000 // 1 second
 
 export default function ChatPage() {
-  const { projectId } = useParams()
+  const params = useParams() as { projectId: string }
   const searchParams = useSearchParams()
   const router = useRouter()
   const { toast } = useToast()
@@ -30,16 +33,14 @@ export default function ChatPage() {
   const [isDownloading, setIsDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState<ChatType>('scope')
   const [attachments, setAttachments] = useState<Array<{ url: string; type: string; name: string }>>([])
-  const [streamingResponse, setStreamingResponse] = useState('')
-  const [pendingMessage, setPendingMessage] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    if (!projectId || typeof projectId !== 'string') return
+    if (!params.projectId) return
 
     const unsubscribe = onSnapshot(
-      doc(db, 'projects', projectId),
+      doc(db, 'projects', params.projectId),
       (doc) => {
         if (!doc.exists()) {
           toast({
@@ -51,8 +52,6 @@ export default function ChatPage() {
           return
         }
         setProject({ ...doc.data(), id: doc.id } as ProjectStatus)
-        setStreamingResponse('')
-        setPendingMessage(null)
       },
       (error) => {
         console.error('Error loading project:', error)
@@ -66,32 +65,28 @@ export default function ChatPage() {
 
     return () => {
       unsubscribe()
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
     }
-  }, [projectId, router, toast])
+  }, [params.projectId, router, toast])
 
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
     }
-  }, [project?.chatHistory, streamingResponse])
+  }, [project?.chatHistory])
 
   useEffect(() => {
     const tab = searchParams.get('tab')
     if (tab && VALID_TABS.includes(tab as ChatType)) {
       setActiveTab(tab as ChatType)
     } else {
-      // Redirect to scope chat if no valid tab is provided
-      router.push(`/dashboard/${projectId}/chat?tab=scope`)
+      router.push(`/dashboard/${params.projectId}/chat?tab=scope`)
     }
-  }, [searchParams, projectId, router])
+  }, [searchParams, params.projectId, router])
 
   const handleTabChange = (value: string) => {
     if (VALID_TABS.includes(value as ChatType)) {
       setActiveTab(value as ChatType)
-      router.push(`/dashboard/${projectId}/chat?tab=${value}`)
+      router.push(`/dashboard/${params.projectId}/chat?tab=${value}`)
     }
   }
 
@@ -112,29 +107,20 @@ export default function ChatPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify({ projectId: params.projectId }),
       })
 
       if (!response.ok) {
         throw new Error('Failed to download scope')
       }
 
-      // Get the blob from the response
       const blob = await response.blob()
-      
-      // Create a URL for the blob
       const url = window.URL.createObjectURL(blob)
-      
-      // Create a temporary link element
       const a = document.createElement('a')
       a.href = url
       a.download = `${project.name}-Scope.docx`
-      
-      // Trigger the download
       document.body.appendChild(a)
       a.click()
-      
-      // Clean up
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
 
@@ -154,81 +140,76 @@ export default function ChatPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || isLoading || !projectId || typeof projectId !== 'string') return
-
-    // Cancel any ongoing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    setIsLoading(true)
-    setStreamingResponse('')
-    setPendingMessage(input)
-    const currentInput = input
-    setInput('')
-
-    abortControllerRef.current = new AbortController()
-
+  const sendMessage = async (currentInput: string, retryAttempt = 0): Promise<boolean> => {
     try {
       const payload = {
-        projectId,
+        projectId: params.projectId,
         message: currentInput,
         type: activeTab,
         ...(attachments.length > 0 && { attachments })
       }
 
+      console.log('Sending chat request:', payload)
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: abortControllerRef.current.signal
+        body: JSON.stringify(payload)
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to send message')
+        const errorData = await response.json()
+        console.error('Chat API error response:', errorData)
+        throw new Error(errorData.error || errorData.details || 'Failed to send message')
       }
 
-      if (!response.body) throw new Error('No response body')
+      const data = await response.json()
+      console.log('Chat API response:', data)
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const text = line.slice(6)
-            setStreamingResponse(prev => prev + text)
-          }
-        }
+      if (!data.message) {
+        throw new Error('Invalid response format')
       }
+
+      return true
+    } catch (error) {
+      console.error(`Chat error (attempt ${retryAttempt + 1}/${MAX_RETRIES}):`, error)
       
-      setAttachments([])
-      setPendingMessage(null)
-    } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log('Request aborted')
-        return
+      if (retryAttempt < MAX_RETRIES - 1) {
+        toast({
+          title: 'Retrying...',
+          description: `Attempt ${retryAttempt + 2} of ${MAX_RETRIES}`,
+        })
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+        return sendMessage(currentInput, retryAttempt + 1)
       }
-      console.error('Chat error:', error)
+
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to send message',
         variant: 'destructive',
       })
-      setPendingMessage(null)
-      setInput(currentInput)
+      return false
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || isLoading || !params.projectId) return
+
+    setIsLoading(true)
+    const currentInput = input
+    setInput('')
+    setRetryCount(0)
+
+    try {
+      const success = await sendMessage(currentInput)
+      if (!success) {
+        setInput(currentInput)
+      } else {
+        setAttachments([])
+      }
     } finally {
       setIsLoading(false)
-      abortControllerRef.current = null
     }
   }
 
@@ -261,6 +242,14 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <div className="border-b px-4 py-2">
+        <Button variant="ghost" size="sm" asChild className="mb-2">
+          <Link href={`/dashboard/${params.projectId}`} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Project
+          </Link>
+        </Button>
+      </div>
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col">
         <div className="border-b px-4">
           <div className="flex justify-between items-center">
@@ -326,7 +315,7 @@ export default function ChatPage() {
                           'flex gap-2',
                           message.role === 'assistant' && 'justify-end'
                         )}>
-                          {message.attachments.map((attachment, index) => (
+                          {message.attachments.map((attachment: { url: string; name: string }, index: number) => (
                             <Button
                               key={index}
                               variant="outline"
@@ -343,18 +332,10 @@ export default function ChatPage() {
                       )}
                     </div>
                   ))}
-                {pendingMessage && (
-                  <div className="flex items-start gap-3 text-sm">
-                    <div className="rounded-lg px-3 py-2 max-w-[80%] bg-primary text-primary-foreground whitespace-pre-wrap">
-                      {formatMessage(pendingMessage)}
-                    </div>
-                  </div>
-                )}
-                {streamingResponse && (
-                  <div className="flex items-start gap-3 text-sm flex-row-reverse">
-                    <div className="rounded-lg px-3 py-2 max-w-[80%] bg-muted whitespace-pre-wrap">
-                      {formatMessage(streamingResponse)}
-                    </div>
+                {isLoading && retryCount > 0 && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-yellow-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Retrying... Attempt {retryCount + 1} of {MAX_RETRIES}</span>
                   </div>
                 )}
               </div>

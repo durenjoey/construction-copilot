@@ -8,12 +8,18 @@ import Link from 'next/link'
 import { adminDb } from '@/lib/firebase-admin'
 import { ProjectStatus, LessonLearned } from '@/lib/types'
 import { LessonForm } from '@/components/lesson-form'
+import { unstable_noStore } from 'next/cache'
 
-export default async function LessonsPage({
-  params,
-}: {
-  params: { projectId: string }
-}) {
+interface LessonsPageProps {
+  params: {
+    projectId: string
+  }
+}
+
+export default async function LessonsPage({ params }: LessonsPageProps) {
+  // Prevent caching to ensure fresh data on each request
+  unstable_noStore()
+  
   const session = await getServerSession(authOptions)
   
   if (!session) {
@@ -22,7 +28,7 @@ export default async function LessonsPage({
 
   try {
     const projectDoc = await adminDb.collection('projects').doc(params.projectId).get()
-    const projectData = projectDoc.data()
+    const projectData = projectDoc.data() as ProjectStatus | undefined
 
     if (!projectDoc.exists || !projectData) {
       return (
@@ -40,7 +46,8 @@ export default async function LessonsPage({
       )
     }
 
-    const project = projectData as ProjectStatus
+    // Ensure lessonsLearned exists and is an array
+    const lessons = projectData.lessonsLearned || []
 
     return (
       <div className="container py-8 space-y-8">
@@ -57,13 +64,13 @@ export default async function LessonsPage({
                 Back to Project
               </Link>
             </Button>
-            <LessonForm projectId={project.id} />
+            <LessonForm projectId={params.projectId} />
           </div>
         </div>
 
         <div className="grid gap-6">
-          {project.lessonsLearned && project.lessonsLearned.length > 0 ? (
-            project.lessonsLearned.map((lesson) => (
+          {lessons.length > 0 ? (
+            lessons.map((lesson: LessonLearned) => (
               <Card key={lesson.id}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -81,11 +88,11 @@ export default async function LessonsPage({
                     <div>
                       <h3 className="font-medium mb-2">Impact Assessment</h3>
                       <div className="grid gap-4 sm:grid-cols-2">
-                        {Object.entries(lesson.impact).map(([type, { affected, details }]) => (
-                          affected && (
+                        {Object.entries(lesson.impact).map(([type, impact]) => (
+                          impact.affected && (
                             <div key={type} className="border rounded-lg p-4">
                               <h4 className="font-medium capitalize mb-1">{type}</h4>
-                              <p className="text-sm text-muted-foreground">{details}</p>
+                              <p className="text-sm text-muted-foreground">{impact.details}</p>
                             </div>
                           )
                         ))}
@@ -116,7 +123,7 @@ export default async function LessonsPage({
               <p className="text-muted-foreground mb-4">
                 Start documenting lessons learned to improve future project outcomes
               </p>
-              <LessonForm projectId={project.id} />
+              <LessonForm projectId={params.projectId} />
             </div>
           )}
         </div>

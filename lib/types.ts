@@ -42,15 +42,17 @@ export interface LessonLearned {
   createdAt: string
 }
 
+export interface Attachment {
+  url: string
+  type: string
+  name: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   type: 'scope' | 'proposal'
-  attachments?: {
-    url: string
-    type: string
-    name: string
-  }[]
+  attachments?: Attachment[]
   timestamp: string
 }
