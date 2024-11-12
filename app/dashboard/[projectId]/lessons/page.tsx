@@ -1,13 +1,14 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Lightbulb } from 'lucide-react'
+import { authOptions } from '../../../../lib/auth'
+import { Button } from '../../../../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card'
+import { Lightbulb, Pencil } from 'lucide-react'
 import Link from 'next/link'
-import { adminDb } from '@/lib/firebase-admin'
-import { ProjectStatus, LessonLearned } from '@/lib/types'
-import { LessonForm } from '@/components/lesson-form'
+import { adminDb } from '../../../../lib/firebase-admin'
+import { ProjectStatus, LessonLearned } from '../../../../lib/types'
+import { LessonForm } from '../../../../components/lesson-form'
+import { EditLessonForm } from '../../../../components/edit-lesson-form'
 import { unstable_noStore } from 'next/cache'
 
 interface LessonsPageProps {
@@ -73,10 +74,21 @@ export default async function LessonsPage({ params }: LessonsPageProps) {
             lessons.map((lesson: LessonLearned) => (
               <Card key={lesson.id}>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Lightbulb className="h-5 w-5" />
-                    {lesson.title}
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Lightbulb className="h-5 w-5" />
+                      {lesson.title}
+                    </CardTitle>
+                    <EditLessonForm 
+                      projectId={params.projectId} 
+                      lesson={lesson}
+                      trigger={
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      }
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">

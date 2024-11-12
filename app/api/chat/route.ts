@@ -20,9 +20,6 @@ Format your response in a clear, structured way with sections and bullet points.
 If a proposal document is attached, analyze its contents and provide specific feedback and recommendations for improvement.`
 }
 
-export const maxDuration = 300 // Set max duration to 5 minutes
-export const dynamic = 'force-dynamic' // Disable static optimization
-
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -75,39 +72,19 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
-    
-    // Format messages for Claude 3.5 Sonnet
-    const messages = chatHistory
-      .filter((msg: ChatMessage) => msg.type === type)
-      .slice(-10)
-      .map((msg: ChatMessage) => ({
-        role: msg.role as "user" | "assistant",
-        content: msg.content + (msg.attachments ? `\n\nAttached documents:\n${msg.attachments.map((a: Attachment) => `- ${a.name}: ${a.url}`).join('\n')}` : '')
-      }))
 
-    // Add attachment information to the message if present
-    const userMessage = attachments && attachments.length > 0
-      ? `${systemPrompt}\n\n${message}\n\nI've attached the following documents:\n${attachments.map((a: Attachment) => `- ${a.name}: ${a.url}`).join('\n')}`
-      : `${systemPrompt}\n\n${message}`
-
-    console.log('Initializing Anthropic client')
-    
     try {
       // Initialize Anthropic client
       const anthropic = new Anthropic({
-        apiKey,
-        maxRetries: 3
+        apiKey
       })
-
-      console.log('Sending request to Anthropic API with model: claude-3-sonnet-20240229')
 
       // Send request to Claude 3.5 Sonnet
       const response = await anthropic.messages.create({
         model: "claude-3-sonnet-20240229",
-        max_tokens: 1024,
+        max_tokens: 4096,
         messages: [
-          ...messages,
-          { role: "user", content: userMessage }
+          { role: "user", content: `${systemPrompt}\n\n${message}` }
         ],
         temperature: 0.7,
       })
@@ -115,23 +92,20 @@ export async function POST(request: Request) {
       console.log('Received response from Anthropic:', JSON.stringify(response, null, 2))
 
       if (!response.content || !response.content[0] || !('text' in response.content[0])) {
-        console.error('Unexpected response format:', response)
         throw new Error('Unexpected response format from AI')
       }
 
       const aiResponse = response.content[0].text
 
-      // Create new user message
+      // Create messages
       const newMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'user',
         content: message,
         type,
-        ...(attachments && attachments.length > 0 && { attachments }),
         timestamp: new Date().toISOString()
       }
 
-      // Create assistant message
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -140,17 +114,10 @@ export async function POST(request: Request) {
         timestamp: new Date().toISOString()
       }
 
-      // Batch write all updates
-      const batch = adminDb.batch()
-
-      // Update chat history
-      batch.update(projectRef, {
-        chatHistory: [...chatHistory, newMessage, assistantMessage]
-      })
-
-      // Update specific sections based on type
-      if (type === 'scope') {
-        batch.update(projectRef, {
+      // Update Firestore
+      await projectRef.update({
+        chatHistory: [...chatHistory, newMessage, assistantMessage],
+        ...(type === 'scope' ? {
           scope: {
             id: Date.now().toString(),
             content: aiResponse,
@@ -158,31 +125,26 @@ export async function POST(request: Request) {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           }
-        })
-      } else if (type === 'proposal') {
-        batch.update(projectRef, {
+        } : {
           'proposal.content': aiResponse,
           'proposal.updatedAt': new Date().toISOString()
         })
-      }
-
-      await batch.commit()
-      console.log('Database updated successfully')
+      })
 
       return NextResponse.json({ message: assistantMessage })
 
     } catch (apiError) {
-      console.error('AI API error:', apiError instanceof Error ? apiError.message : 'Unknown error', apiError)
+      console.error('AI API error:', apiError)
       return NextResponse.json(
-        { error: 'Failed to get AI response', details: apiError instanceof Error ? apiError.message : 'Unknown error' },
+        { error: 'Failed to get AI response' },
         { status: 500 }
       )
     }
 
   } catch (error) {
-    console.error('Chat API error:', error instanceof Error ? error.message : 'Unknown error', error)
+    console.error('Chat API error:', error)
     return NextResponse.json(
-      { error: 'Failed to process message', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to process message' },
       { status: 500 }
     )
   }
