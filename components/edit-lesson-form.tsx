@@ -27,10 +27,12 @@ export function EditLessonForm({ projectId, lesson, trigger }: EditLessonFormPro
   const [formData, setFormData] = useState({
     title: lesson.title,
     problem: lesson.problem,
-    schedule: lesson.impact.schedule,
-    cost: lesson.impact.cost,
-    quality: lesson.impact.quality,
-    safety: lesson.impact.safety,
+    impact: {
+      schedule: { affected: lesson.impact.schedule.affected, details: lesson.impact.schedule.details },
+      cost: { affected: lesson.impact.cost.affected, details: lesson.impact.cost.details },
+      quality: { affected: lesson.impact.quality.affected, details: lesson.impact.quality.details },
+      safety: { affected: lesson.impact.safety.affected, details: lesson.impact.safety.details }
+    },
     rootCause: lesson.rootCause,
     solution: lesson.solution
   })
@@ -84,12 +86,7 @@ export function EditLessonForm({ projectId, lesson, trigger }: EditLessonFormPro
         ...lesson,
         title: formData.title,
         problem: formData.problem,
-        impact: {
-          schedule: formData.schedule,
-          cost: formData.cost,
-          quality: formData.quality,
-          safety: formData.safety
-        },
+        impact: formData.impact,
         rootCause: formData.rootCause,
         solution: formData.solution
       }
@@ -132,9 +129,12 @@ export function EditLessonForm({ projectId, lesson, trigger }: EditLessonFormPro
   const handleImpactChange = (type: ImpactType, field: 'affected' | 'details', value: boolean | string) => {
     setFormData(prev => ({
       ...prev,
-      [type]: {
-        ...prev[type],
-        [field]: value
+      impact: {
+        ...prev.impact,
+        [type]: {
+          ...prev.impact[type],
+          [field]: value
+        }
       }
     }))
   }
@@ -180,15 +180,15 @@ export function EditLessonForm({ projectId, lesson, trigger }: EditLessonFormPro
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id={`${type}-impact`}
-                    checked={formData[type].affected}
+                    checked={formData.impact[type].affected}
                     onCheckedChange={(checked: boolean) => handleImpactChange(type, 'affected', checked)}
                   />
                   <Label htmlFor={`${type}-impact`} className="capitalize">{type} Impact</Label>
                 </div>
-                {formData[type].affected && (
+                {formData.impact[type].affected && (
                   <Textarea
                     placeholder="Provide impact details"
-                    value={formData[type].details}
+                    value={formData.impact[type].details}
                     onChange={e => handleImpactChange(type, 'details', e.target.value)}
                     className="mt-2"
                   />
