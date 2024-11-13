@@ -4,10 +4,10 @@ import { signIn, useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { HardHat, Loader2 } from 'lucide-react'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function SignIn() {
+function SignInContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -113,5 +113,17 @@ export default function SignIn() {
         </CardContent>
       </Card>
     </main>
+  )
+}
+
+export default function SignIn() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </main>
+    }>
+      <SignInContent />
+    </Suspense>
   )
 }
