@@ -72,31 +72,35 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         
         <div className="grid gap-6 md:grid-cols-2">
           {project.scope && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Current Scope
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{project.scope.content}</p>
-              </CardContent>
-            </Card>
+            <Link href={`/dashboard/${params.projectId}/chat?tab=scope`} className="block transition-transform hover:scale-[1.02]">
+              <Card className="h-full cursor-pointer hover:border-primary">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Current Scope
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm whitespace-pre-wrap">{project.scope.content}</p>
+                </CardContent>
+              </Card>
+            </Link>
           )}
 
           {project.proposal && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" />
-                  Current Proposal
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{project.proposal.content}</p>
-              </CardContent>
-            </Card>
+            <Link href={`/dashboard/${params.projectId}/chat?tab=proposal`} className="block transition-transform hover:scale-[1.02]">
+              <Card className="h-full cursor-pointer hover:border-primary">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5" />
+                    Current Proposal
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm whitespace-pre-wrap">{project.proposal.content}</p>
+                </CardContent>
+              </Card>
+            </Link>
           )}
 
           {project.lessonsLearned && project.lessonsLearned.length > 0 && (
@@ -114,7 +118,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {project.lessonsLearned.slice(0, 4).map((lesson) => (
+                  {project.lessonsLearned.slice(0, 4).map((lesson: any) => (
                     <div key={lesson.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-medium">{lesson.title}</span>
