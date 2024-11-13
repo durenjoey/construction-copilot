@@ -54,10 +54,16 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Nav: {
-          prev: (props) => <ChevronLeft className="h-4 w-4" {...props} />,
-          next: (props) => <ChevronRight className="h-4 w-4" {...props} />
-        }
+        Nav: ({ onPreviousClick, onNextClick }) => (
+          <div className="space-x-1 flex items-center">
+            <button onClick={onPreviousClick} className="h-7 w-7">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button onClick={onNextClick} className="h-7 w-7">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )
       }}
       {...props}
     />
