@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { MainNav } from '@/components/main-nav'
-import { UserNav } from '@/components/user-nav'
+import { authOptions } from 'lib/auth'
+import { MainNav } from 'components/main-nav'
+import { UserNav } from 'components/user-nav'
 
 export default async function DashboardLayout({
   children,
@@ -22,7 +22,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
           <MainNav />
           {session.user && <UserNav user={session.user} />}
         </div>

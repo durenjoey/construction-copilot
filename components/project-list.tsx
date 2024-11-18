@@ -141,7 +141,7 @@ export function ProjectList() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {[...Array(3)].map((_, i) => (
           <Card key={i}>
             <CardHeader>
@@ -180,30 +180,35 @@ export function ProjectList() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
       {projects.map((project) => (
         <Link key={project.id} href={`/dashboard/${project.id}`}>
           <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
             <CardHeader>
-              <CardTitle>{project.name || 'Untitled Project'}</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">{project.name || 'Untitled Project'}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                 {project.description || 'No description provided'}
               </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="w-full" asChild>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button variant="outline" size="sm" className="w-full text-sm py-2" asChild>
                   <span>
                     <FileText className="h-4 w-4 mr-2" />
-                    View Details
+                    <span className="whitespace-nowrap">View Details</span>
                   </span>
                 </Button>
-                <Button variant="outline" size="sm" className="w-full" onClick={(e) => {
-                  e.preventDefault()
-                  router.push(`/dashboard/${project.id}/chat`)
-                }}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-sm py-2" 
+                  onClick={(e) => {
+                    e.preventDefault()
+                    router.push(`/dashboard/${project.id}/chat`)
+                  }}
+                >
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  Open Chat
+                  <span className="whitespace-nowrap">Open Chat</span>
                 </Button>
               </div>
             </CardContent>
