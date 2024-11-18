@@ -23,9 +23,10 @@ export async function POST(request: Request) {
     }
 
     // Validate file type
-    if (file.type !== 'application/pdf') {
+    const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    if (!validTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Only PDF files are supported' },
+        { error: 'Only PDF and Word documents are supported' },
         { status: 400 }
       )
     }
@@ -40,6 +41,17 @@ export async function POST(request: Request) {
 
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer())
+
+    // Extract text content from the file
+    let content = ''
+    try {
+      // For now, treat the buffer as text content
+      // In a production environment, you'd want to use proper PDF/DOCX parsing libraries
+      content = buffer.toString('utf-8')
+    } catch (error) {
+      console.error('Error extracting file content:', error)
+      content = 'Failed to extract content from file'
+    }
 
     // Generate unique filename
     const timestamp = Date.now()
@@ -67,6 +79,7 @@ export async function POST(request: Request) {
       url,
       type: file.type,
       size: file.size,
+      content,
       uploadedBy: session.user.id,
       uploadedAt: new Date().toISOString(),
     })
@@ -74,7 +87,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       url,
-      filename: file.name,
+      name: file.name,
+      type: file.type,
+      content
     })
 
   } catch (error) {

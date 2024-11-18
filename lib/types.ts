@@ -46,6 +46,7 @@ export interface Attachment {
   url: string
   type: string
   name: string
+  content: string  // Added content property for storing attachment text content
 }
 
 export interface ChatMessage {

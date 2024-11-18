@@ -6,7 +6,7 @@ import { Upload, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 interface FileUploadProps {
-  onUploadComplete?: (fileUrl: string, fileName: string, fileType: string) => void;
+  onUploadComplete?: (fileUrl: string, fileName: string, fileType: string, fileContent: string) => void;
 }
 
 export function FileUpload({ onUploadComplete }: FileUploadProps) {
@@ -60,7 +60,7 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
       })
 
       if (onUploadComplete) {
-        onUploadComplete(data.url, file.name, file.type)
+        onUploadComplete(data.url, data.name, data.type, data.content)
       }
     } catch (error) {
       console.error('Upload error:', error)

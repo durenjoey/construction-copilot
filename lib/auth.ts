@@ -43,20 +43,23 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, account }) {
+      console.log('JWT Callback:', { token, user, account })
       if (account && user) {
         // Initial sign in
-        token.id = user.id
+        token.id = (user.id || user.email || 'unknown-id') as string // Ensure we have a string
         token.email = user.email || undefined
       }
       return token
     },
     async session({ session, token }) {
-      if (session.user && token.id) {
-        session.user.id = token.id
+      console.log('Session Callback:', { session, token })
+      if (session.user) {
+        session.user.id = token.id || token.email || 'unknown-id' // Ensure we always have a string ID
         if (token.email) {
           session.user.email = token.email
         }
       }
+      console.log('Returning session:', session)
       return session
     },
     async redirect({ url, baseUrl }) {

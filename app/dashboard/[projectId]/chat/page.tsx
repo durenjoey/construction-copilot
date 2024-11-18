@@ -9,9 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FileText, ClipboardList, Send, Loader2, Download, ArrowLeft, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ChatMessage, ProjectStatus } from '@/lib/types'
+import { ChatMessage, ProjectStatus, Attachment } from '@/lib/types'
 import { db } from '@/lib/firebase'
-import { onSnapshot, doc } from 'firebase/firestore'
+import { doc, onSnapshot, DocumentSnapshot } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
 import { FileUpload } from '@/components/file-upload'
 import ReactMarkdown from 'react-markdown'
@@ -32,7 +32,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState<ChatType>('scope')
-  const [attachments, setAttachments] = useState<Array<{ url: string; type: string; name: string }>>([])
+  const [attachments, setAttachments] = useState<Attachment[]>([])
   const [retryCount, setRetryCount] = useState(0)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
@@ -41,7 +41,7 @@ export default function ChatPage() {
 
     const unsubscribe = onSnapshot(
       doc(db, 'projects', params.projectId),
-      (doc) => {
+      (doc: DocumentSnapshot) => {
         if (!doc.exists()) {
           toast({
             title: 'Error',
@@ -53,7 +53,7 @@ export default function ChatPage() {
         }
         setProject({ ...doc.data(), id: doc.id } as ProjectStatus)
       },
-      (error) => {
+      (error: Error) => {
         console.error('Error loading project:', error)
         toast({
           title: 'Error',
@@ -213,8 +213,13 @@ export default function ChatPage() {
     }
   }
 
-  const handleFileUpload = async (fileUrl: string, fileName: string, fileType: string) => {
-    setAttachments(prev => [...prev, { url: fileUrl, type: fileType, name: fileName }])
+  const handleFileUpload = async (fileUrl: string, fileName: string, fileType: string, fileContent: string) => {
+    setAttachments(prev => [...prev, { 
+      url: fileUrl, 
+      type: fileType, 
+      name: fileName,
+      content: fileContent 
+    }])
     toast({
       title: 'Success',
       description: 'File attached successfully',
@@ -314,7 +319,7 @@ export default function ChatPage() {
                         'flex gap-2',
                         message.role === 'assistant' && 'justify-end'
                       )}>
-                        {message.attachments.map((attachment: { url: string; name: string }, index: number) => (
+                        {message.attachments.map((attachment: Attachment, index: number) => (
                           <Button
                             key={index}
                             variant="outline"

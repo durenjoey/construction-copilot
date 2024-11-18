@@ -1,16 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { useToast } from '@/hooks/use-toast'
-import { db } from '@/lib/firebase'
+import { Button } from 'components/ui/button'
+import { Input } from 'components/ui/input'
+import { Textarea } from 'components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 'components/ui/dialog'
+import { Label } from 'components/ui/label'
+import { Checkbox } from 'components/ui/checkbox'
+import { useToast } from 'hooks/use-toast'
+import { db } from 'lib/firebase'
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore'
-import { LessonLearned } from '@/lib/types'
+import { LessonLearned } from 'lib/types'
 
 interface LessonFormProps {
   projectId: string
@@ -41,7 +41,7 @@ export function LessonForm({ projectId }: LessonFormProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          path: `/dashboard/${projectId}/lessons`
+          path: `/dashboard/[projectId]/lessons`
         }),
       })
       if (!response.ok) {

@@ -73,6 +73,15 @@ export async function POST(request: Request) {
       )
     }
 
+    // Prepare message with attachments
+    let fullMessage = message
+    if (attachments && attachments.length > 0) {
+      const attachmentContents = attachments.map(attachment => 
+        `Document: ${attachment.name}\nContent:\n${attachment.content}`
+      ).join('\n\n')
+      fullMessage = `${message}\n\nAttached Documents:\n${attachmentContents}`
+    }
+
     try {
       // Initialize Anthropic client
       const anthropic = new Anthropic({
@@ -84,7 +93,7 @@ export async function POST(request: Request) {
         model: "claude-3-sonnet-20240229",
         max_tokens: 4096,
         messages: [
-          { role: "user", content: `${systemPrompt}\n\n${message}` }
+          { role: "user", content: `${systemPrompt}\n\n${fullMessage}` }
         ],
         temperature: 0.7,
       })
@@ -103,7 +112,8 @@ export async function POST(request: Request) {
         role: 'user',
         content: message,
         type,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        attachments
       }
 
       const assistantMessage: ChatMessage = {
