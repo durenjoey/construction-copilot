@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { adminDb } from '@/lib/firebase-admin'
-import { ChatMessage, ProjectStatus, Attachment } from '@/lib/types'
+import { adminDb } from 'lib/firebase-admin'
+import { ChatMessage, ProjectStatus, Attachment } from 'lib/types'
 import { Anthropic } from '@anthropic-ai/sdk'
 
 const SYSTEM_PROMPTS = {
@@ -88,13 +88,33 @@ export async function POST(request: Request) {
         apiKey
       })
 
-      // Send request to Claude 3.5 Sonnet
+      // Convert chat history to Anthropic message format
+      const previousMessages = chatHistory
+        .filter(msg => msg.type === type) // Only include messages of the same type
+        .map(msg => {
+          let content = msg.content
+          if (msg.attachments && msg.attachments.length > 0) {
+            const attachmentContents = msg.attachments
+              .map(att => `Document: ${att.name}\nContent:\n${att.content}`)
+              .join('\n\n')
+            content = `${content}\n\nAttached Documents:\n${attachmentContents}`
+          }
+          return {
+            role: msg.role as "user" | "assistant",
+            content
+          }
+        })
+
+      // Send request to Claude 3.5 Sonnet with chat history
+      // Include system prompt in the first message
+      const messages = previousMessages.length > 0 ? 
+        [...previousMessages, { role: "user" as const, content: fullMessage }] :
+        [{ role: "user" as const, content: `${systemPrompt}\n\n${fullMessage}` }]
+
       const response = await anthropic.messages.create({
         model: "claude-3-sonnet-20240229",
         max_tokens: 4096,
-        messages: [
-          { role: "user", content: `${systemPrompt}\n\n${fullMessage}` }
-        ],
+        messages,
         temperature: 0.7,
       })
 
@@ -113,7 +133,7 @@ export async function POST(request: Request) {
         content: message,
         type,
         timestamp: new Date().toISOString(),
-        attachments
+        ...(attachments && attachments.length > 0 ? { attachments } : {}) // Only include attachments if they exist
       }
 
       const assistantMessage: ChatMessage = {
