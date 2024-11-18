@@ -6,7 +6,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FileText, ClipboardList, Send, Loader2, Download, ArrowLeft, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChatMessage, ProjectStatus, Attachment } from '@/lib/types'
@@ -14,6 +13,7 @@ import { db } from '@/lib/firebase'
 import { doc, onSnapshot, DocumentSnapshot } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
 import { FileUpload } from '@/components/file-upload'
+import { SidePanel } from '@/components/side-panel'
 import ReactMarkdown from 'react-markdown'
 import Link from 'next/link'
 
@@ -316,7 +316,7 @@ export default function ChatPage() {
                     </div>
                     {message.attachments && message.attachments.length > 0 && (
                       <div className={cn(
-                        'flex gap-2',
+                        'flex gap-2 flex-wrap',
                         message.role === 'assistant' && 'justify-end'
                       )}>
                         {message.attachments.map((attachment: Attachment, index: number) => (
@@ -325,10 +325,11 @@ export default function ChatPage() {
                             variant="outline"
                             size="sm"
                             asChild
+                            className="max-w-full truncate"
                           >
                             <a href={attachment.url} target="_blank" rel="noopener noreferrer">
-                              <FileText className="h-4 w-4 mr-2" />
-                              {attachment.name}
+                              <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+                              <span className="truncate">{attachment.name}</span>
                             </a>
                           </Button>
                         ))}
@@ -348,7 +349,7 @@ export default function ChatPage() {
           <form onSubmit={handleSubmit} className="p-4 border-t">
             <div className="max-w-2xl mx-auto space-y-4">
               {activeTab === 'proposal' && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <FileUpload onUploadComplete={handleFileUpload} />
                   {attachments.map((attachment, index) => (
                     <Button
@@ -356,9 +357,10 @@ export default function ChatPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                      className="max-w-full truncate"
                     >
-                      <FileText className="h-4 w-4 mr-2" />
-                      {attachment.name}
+                      <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">{attachment.name}</span>
                     </Button>
                   ))}
                 </div>
@@ -388,40 +390,31 @@ export default function ChatPage() {
           </form>
         </div>
 
-        <div className="w-80 border-l p-4">
-          {activeTab === 'scope' && project?.scope && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Current Scope</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm whitespace-pre-wrap">
-                  {formatMessage(project.scope.content)}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {activeTab === 'proposal' && project?.proposal && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Current Proposal</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm whitespace-pre-wrap mb-4">
-                  {formatMessage(project.proposal.content)}
-                </div>
-                {project.proposal.attachmentUrl && (
-                  <Button variant="outline" size="sm" className="w-full" asChild>
-                    <a href={project.proposal.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                      <FileText className="h-4 w-4 mr-2" />
-                      View Proposal Document
-                    </a>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        {/* Side Panel */}
+        {activeTab === 'scope' && project?.scope && (
+          <SidePanel title="Current Scope">
+            <div className="text-sm whitespace-pre-wrap">
+              {formatMessage(project.scope.content)}
+            </div>
+          </SidePanel>
+        )}
+        {activeTab === 'proposal' && project?.proposal && (
+          <SidePanel title="Current Proposal">
+            <div className="space-y-4">
+              <div className="text-sm whitespace-pre-wrap">
+                {formatMessage(project.proposal.content)}
+              </div>
+              {project.proposal.attachmentUrl && (
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <a href={project.proposal.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                    <FileText className="h-4 w-4 mr-2" />
+                    View Proposal Document
+                  </a>
+                </Button>
+              )}
+            </div>
+          </SidePanel>
+        )}
       </div>
     </div>
   )
