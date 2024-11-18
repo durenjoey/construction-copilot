@@ -2,18 +2,18 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from 'components/ui/scroll-area'
+import { Button } from 'components/ui/button'
+import { Textarea } from 'components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from 'components/ui/tabs'
 import { FileText, ClipboardList, Send, Loader2, Download, ArrowLeft, AlertCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { ChatMessage, ProjectStatus, Attachment } from '@/lib/types'
-import { db } from '@/lib/firebase'
+import { cn } from 'lib/utils'
+import { ChatMessage, ProjectStatus, Attachment } from 'lib/types'
+import { db } from 'lib/firebase'
 import { doc, onSnapshot, DocumentSnapshot } from 'firebase/firestore'
-import { useToast } from '@/hooks/use-toast'
-import { FileUpload } from '@/components/file-upload'
-import { SidePanel } from '@/components/side-panel'
+import { useToast } from 'hooks/use-toast'
+import { FileUpload } from 'components/file-upload'
+import { SidePanel } from 'components/side-panel'
 import ReactMarkdown from 'react-markdown'
 import Link from 'next/link'
 
@@ -248,7 +248,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="border-b px-4 py-2">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1">
             <TabsList className="w-full justify-start">
               <TabsTrigger value="scope" className="flex items-center gap-2">
@@ -261,8 +261,8 @@ export default function ChatPage() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <div className="flex items-center gap-4">
-            <Button asChild variant="outline">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button asChild variant="outline" className="w-full sm:w-auto">
               <Link href={`/dashboard/${params.projectId}`}>
                 Back to Project
               </Link>
@@ -273,6 +273,7 @@ export default function ChatPage() {
                 size="sm"
                 onClick={handleDownloadScope}
                 disabled={isDownloading}
+                className="w-full sm:w-auto"
               >
                 {isDownloading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -290,7 +291,7 @@ export default function ChatPage() {
 
       <div className="flex-1 flex">
         <div className="flex-1 flex flex-col">
-          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+          <ScrollArea ref={scrollAreaRef} className="flex-1 p-2 sm:p-4">
             <div className="space-y-4 max-w-2xl mx-auto">
               {project?.chatHistory
                 ?.filter((msg: ChatMessage) => msg.type === activeTab)
@@ -300,12 +301,12 @@ export default function ChatPage() {
                     className="space-y-2"
                   >
                     <div className={cn(
-                      'flex items-start gap-3 text-sm',
+                      'flex items-start gap-2 sm:gap-3 text-sm',
                       message.role === 'assistant' && 'flex-row-reverse'
                     )}>
                       <div
                         className={cn(
-                          'rounded-lg px-3 py-2 max-w-[80%] whitespace-pre-wrap',
+                          'rounded-lg px-3 py-2 max-w-[85%] sm:max-w-[75%] break-words',
                           message.role === 'user'
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted'
@@ -325,7 +326,7 @@ export default function ChatPage() {
                             variant="outline"
                             size="sm"
                             asChild
-                            className="max-w-full truncate"
+                            className="max-w-full truncate text-xs sm:text-sm"
                           >
                             <a href={attachment.url} target="_blank" rel="noopener noreferrer">
                               <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -346,7 +347,7 @@ export default function ChatPage() {
             </div>
           </ScrollArea>
 
-          <form onSubmit={handleSubmit} className="p-4 border-t">
+          <form onSubmit={handleSubmit} className="p-2 sm:p-4 border-t">
             <div className="max-w-2xl mx-auto space-y-4">
               {activeTab === 'proposal' && (
                 <div className="flex items-center gap-2 flex-wrap">
@@ -357,7 +358,7 @@ export default function ChatPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
-                      className="max-w-full truncate"
+                      className="max-w-full truncate text-xs sm:text-sm"
                     >
                       <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
                       <span className="truncate">{attachment.name}</span>
@@ -370,7 +371,7 @@ export default function ChatPage() {
                   value={input}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
                   placeholder={`Type your ${activeTab} message...`}
-                  className="min-h-[60px]"
+                  className="min-h-[60px] text-base sm:text-sm"
                   onKeyDown={(e: React.KeyboardEvent) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
@@ -378,11 +379,15 @@ export default function ChatPage() {
                     }
                   }}
                 />
-                <Button type="submit" disabled={isLoading}>
+                <Button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="h-auto px-4"
+                >
                   {isLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
-                    <Send className="h-4 w-4" />
+                    <Send className="h-5 w-5" />
                   )}
                 </Button>
               </div>
