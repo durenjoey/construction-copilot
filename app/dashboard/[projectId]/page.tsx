@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { FileUpload } from '@/components/file-upload'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { authOptions } from 'lib/auth'
+import { FileUpload } from 'components/file-upload'
+import { Button } from 'components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from 'components/ui/card'
 import { FileText, ClipboardList, Lightbulb } from 'lucide-react'
 import Link from 'next/link'
-import { adminDb } from '@/lib/firebase-admin'
-import { ProjectStatus } from '@/lib/types'
+import { adminDb } from 'lib/firebase-admin'
+import { ProjectStatus } from 'lib/types'
 
 interface ProjectPageProps {
   params: {

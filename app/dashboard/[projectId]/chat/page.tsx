@@ -6,7 +6,7 @@ import { ScrollArea } from 'components/ui/scroll-area'
 import { Button } from 'components/ui/button'
 import { Textarea } from 'components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from 'components/ui/tabs'
-import { FileText, ClipboardList, Send, Loader2, Download, ArrowLeft, AlertCircle } from 'lucide-react'
+import { FileText, ClipboardList, Send, Loader2, Download, ArrowLeft, AlertCircle, User, Bot } from 'lucide-react'
 import { cn } from 'lib/utils'
 import { ChatMessage, ProjectStatus, Attachment } from 'lib/types'
 import { db } from 'lib/firebase'
@@ -30,10 +30,13 @@ export default function ChatPage() {
   const [project, setProject] = useState<ProjectStatus | null>(null)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isThinking, setIsThinking] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState<ChatType>('scope')
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [retryCount, setRetryCount] = useState(0)
+  const [streamingMessage, setStreamingMessage] = useState('')
+  const [isStreaming, setIsStreaming] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -72,7 +75,7 @@ export default function ChatPage() {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
     }
-  }, [project?.chatHistory])
+  }, [project?.chatHistory, streamingMessage])
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -151,6 +154,10 @@ export default function ChatPage() {
 
       console.log('Sending chat request:', payload)
 
+      setIsThinking(true)
+      setStreamingMessage('')
+      setIsStreaming(true)
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,12 +170,24 @@ export default function ChatPage() {
         throw new Error(errorData.error || errorData.details || 'Failed to send message')
       }
 
-      const data = await response.json()
-      console.log('Chat API response:', data)
+      setIsThinking(false)
 
-      if (!data.message) {
-        throw new Error('Invalid response format')
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream available')
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const text = new TextDecoder().decode(value)
+        setStreamingMessage(prev => prev + text)
       }
+
+      // Wait a bit before clearing streaming state to ensure Firestore has updated
+      setTimeout(() => {
+        setIsStreaming(false)
+        setStreamingMessage('')
+      }, 500)
 
       return true
     } catch (error) {
@@ -189,6 +208,8 @@ export default function ChatPage() {
         variant: 'destructive',
       })
       return false
+    } finally {
+      setIsThinking(false)
     }
   }
 
@@ -228,8 +249,22 @@ export default function ChatPage() {
 
   const formatMessage = (content: string) => {
     return content.split('\n').map((line, i) => (
-      <div key={i}>
-        <ReactMarkdown>{line}</ReactMarkdown>
+      <div key={i} className="prose prose-sm max-w-none dark:prose-invert">
+        <ReactMarkdown
+          components={{
+            h1: ({ children }) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
+            h2: ({ children }) => <h2 className="text-lg font-semibold mt-3 mb-2">{children}</h2>,
+            h3: ({ children }) => <h3 className="text-base font-medium mt-2 mb-1">{children}</h3>,
+            ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1">{children}</ul>,
+            ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1">{children}</ol>,
+            li: ({ children }) => <li className="marker:text-foreground">{children}</li>,
+            p: ({ children }) => <p className="my-2">{children}</p>,
+            code: ({ children }) => <code className="bg-muted px-1 py-0.5 rounded text-sm">{children}</code>,
+            pre: ({ children }) => <pre className="bg-muted p-3 rounded-lg my-2 overflow-x-auto">{children}</pre>,
+          }}
+        >
+          {line}
+        </ReactMarkdown>
       </div>
     ))
   }
@@ -244,6 +279,8 @@ export default function ChatPage() {
       </div>
     )
   }
+
+  const filteredChatHistory = project.chatHistory?.filter((msg: ChatMessage) => msg.type === activeTab) || []
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
@@ -291,55 +328,91 @@ export default function ChatPage() {
 
       <div className="flex-1 flex">
         <div className="flex-1 flex flex-col">
-          <ScrollArea ref={scrollAreaRef} className="flex-1 p-2 sm:p-4">
-            <div className="space-y-4 max-w-2xl mx-auto">
-              {project?.chatHistory
-                ?.filter((msg: ChatMessage) => msg.type === activeTab)
-                .map((message: ChatMessage) => (
-                  <div
-                    key={message.id}
-                    className="space-y-2"
-                  >
+          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+            <div className="space-y-6 max-w-3xl mx-auto">
+              {filteredChatHistory.map((message: ChatMessage) => (
+                <div
+                  key={message.id}
+                  className="space-y-3"
+                >
+                  <div className={cn(
+                    'flex items-start gap-3',
+                    message.role === 'assistant' ? 'flex-row' : 'flex-row-reverse'
+                  )}>
                     <div className={cn(
-                      'flex items-start gap-2 sm:gap-3 text-sm',
-                      message.role === 'assistant' && 'flex-row-reverse'
+                      'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
+                      message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                     )}>
-                      <div
-                        className={cn(
-                          'rounded-lg px-3 py-2 max-w-[85%] sm:max-w-[75%] break-words',
-                          message.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
-                        )}
-                      >
-                        {formatMessage(message.content)}
-                      </div>
+                      {message.role === 'user' ? (
+                        <User className="h-5 w-5" />
+                      ) : (
+                        <Bot className="h-5 w-5" />
+                      )}
                     </div>
-                    {message.attachments && message.attachments.length > 0 && (
-                      <div className={cn(
-                        'flex gap-2 flex-wrap',
-                        message.role === 'assistant' && 'justify-end'
-                      )}>
-                        {message.attachments.map((attachment: Attachment, index: number) => (
-                          <Button
-                            key={index}
-                            variant="outline"
-                            size="sm"
-                            asChild
-                            className="max-w-full truncate text-xs sm:text-sm"
-                          >
-                            <a href={attachment.url} target="_blank" rel="noopener noreferrer">
-                              <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
-                              <span className="truncate">{attachment.name}</span>
-                            </a>
-                          </Button>
-                        ))}
-                      </div>
-                    )}
+                    <div
+                      className={cn(
+                        'rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]',
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      )}
+                    >
+                      {formatMessage(message.content)}
+                    </div>
                   </div>
-                ))}
+                  {message.attachments && message.attachments.length > 0 && (
+                    <div className={cn(
+                      'flex gap-2 flex-wrap pl-11',
+                      message.role === 'user' && 'justify-end pr-11 pl-0'
+                    )}>
+                      {message.attachments.map((attachment: Attachment, index: number) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="max-w-[200px] group hover:bg-muted/80"
+                        >
+                          <a 
+                            href={attachment.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center"
+                          >
+                            <FileText className="h-4 w-4 mr-2 flex-shrink-0 group-hover:text-primary" />
+                            <span className="truncate text-sm">{attachment.name}</span>
+                          </a>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isThinking && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <div className="bg-muted rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>AI is thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {streamingMessage && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <div className="bg-muted rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]">
+                    {formatMessage(streamingMessage)}
+                  </div>
+                </div>
+              )}
               {isLoading && retryCount > 0 && (
-                <div className="flex items-center justify-center gap-2 text-sm text-yellow-600">
+                <div className="flex items-center justify-center gap-2 text-sm text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2">
                   <AlertCircle className="h-4 w-4" />
                   <span>Retrying... Attempt {retryCount + 1} of {MAX_RETRIES}</span>
                 </div>
@@ -347,8 +420,8 @@ export default function ChatPage() {
             </div>
           </ScrollArea>
 
-          <form onSubmit={handleSubmit} className="p-2 sm:p-4 border-t">
-            <div className="max-w-2xl mx-auto space-y-4">
+          <form onSubmit={handleSubmit} className="p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="max-w-3xl mx-auto space-y-4">
               {activeTab === 'proposal' && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <FileUpload onUploadComplete={handleFileUpload} />
@@ -358,10 +431,10 @@ export default function ChatPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
-                      className="max-w-full truncate text-xs sm:text-sm"
+                      className="max-w-[200px] group hover:bg-destructive/10"
                     >
-                      <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
-                      <span className="truncate">{attachment.name}</span>
+                      <FileText className="h-4 w-4 mr-2 flex-shrink-0 group-hover:text-destructive" />
+                      <span className="truncate text-sm group-hover:text-destructive">{attachment.name}</span>
                     </Button>
                   ))}
                 </div>
@@ -371,7 +444,7 @@ export default function ChatPage() {
                   value={input}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
                   placeholder={`Type your ${activeTab} message...`}
-                  className="min-h-[60px] text-base sm:text-sm"
+                  className="min-h-[60px] resize-none"
                   onKeyDown={(e: React.KeyboardEvent) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
@@ -398,7 +471,7 @@ export default function ChatPage() {
         {/* Side Panel */}
         {activeTab === 'scope' && project?.scope && (
           <SidePanel title="Current Scope">
-            <div className="text-sm whitespace-pre-wrap">
+            <div className="text-sm">
               {formatMessage(project.scope.content)}
             </div>
           </SidePanel>
@@ -406,13 +479,13 @@ export default function ChatPage() {
         {activeTab === 'proposal' && project?.proposal && (
           <SidePanel title="Current Proposal">
             <div className="space-y-4">
-              <div className="text-sm whitespace-pre-wrap">
+              <div className="text-sm">
                 {formatMessage(project.proposal.content)}
               </div>
               {project.proposal.attachmentUrl && (
-                <Button variant="outline" size="sm" className="w-full" asChild>
+                <Button variant="outline" size="sm" className="w-full group hover:bg-muted/80" asChild>
                   <a href={project.proposal.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                    <FileText className="h-4 w-4 mr-2" />
+                    <FileText className="h-4 w-4 mr-2 group-hover:text-primary" />
                     View Proposal Document
                   </a>
                 </Button>
