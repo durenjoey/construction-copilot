@@ -451,12 +451,6 @@ export default function ChatPage() {
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
                   placeholder={`Type your ${activeTab} message...`}
                   className="min-h-[60px] resize-none"
-                  onKeyDown={(e: React.KeyboardEvent) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSubmit(e as any)
-                    }
-                  }}
                 />
                 <Button 
                   type="submit" 
