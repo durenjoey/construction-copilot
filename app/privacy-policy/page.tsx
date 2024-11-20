@@ -16,9 +16,9 @@ export default function PrivacyPolicy() {
       <div className="space-y-6">
         <p>
           This Privacy Statement explains how Personal Information about our
-          users is collected, used, and disclosed by Weigh Anchor LLC ("us",
-          "we", "our" or "Company"). This Privacy Statement describes our
-          privacy practices for the Construction Copilot platform ("Services"),
+          users is collected, used, and disclosed by Weigh Anchor LLC (&quot;us&quot;,
+          &quot;we&quot;, &quot;our&quot; or &quot;Company&quot;). This Privacy Statement describes our
+          privacy practices for the Construction Copilot platform (&quot;Services&quot;),
           including our website, scope creation tools, proposal review
           capabilities, lessons learned repository, and any associated Project
           Management Information System (PMIS) features.
@@ -32,7 +32,7 @@ export default function PrivacyPolicy() {
 
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">
-            1. Personal Information Collection & Use
+            1. Personal Information Collection &amp; Use
           </h2>
           <p>We only collect and use your personal information to:</p>
           <ul className="list-disc pl-6">
@@ -76,7 +76,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">2. Data Security & Protection</h2>
+          <h2 className="text-2xl font-semibold">2. Data Security &amp; Protection</h2>
           <p>2.1 We implement comprehensive security measures including:</p>
           <ul className="list-disc pl-6">
             <li>
@@ -135,7 +135,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">4. Data Usage & Sharing</h2>
+          <h2 className="text-2xl font-semibold">4. Data Usage &amp; Sharing</h2>
           <ul className="list-disc pl-6">
             <li>We do not sell user data</li>
             <li>We do not share data with unauthorized third parties</li>
@@ -151,7 +151,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">5. User Rights & Control</h2>
+          <h2 className="text-2xl font-semibold">5. User Rights &amp; Control</h2>
           <ul className="list-disc pl-6">
             <li>Access your personal information</li>
             <li>Request corrections to your data</li>
