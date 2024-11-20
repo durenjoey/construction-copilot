@@ -71,11 +71,19 @@ export default function ChatPage() {
     }
   }, [params.projectId, router, toast])
 
+  // Scroll to bottom whenever chat history changes or streaming occurs
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
     }
   }, [project?.chatHistory, streamingMessage])
+
+  // Scroll to bottom when switching tabs
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    }
+  }, [activeTab])
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -177,17 +185,15 @@ export default function ChatPage() {
 
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done) {
+          setIsStreaming(false)
+          setStreamingMessage('')
+          break
+        }
 
         const text = new TextDecoder().decode(value)
         setStreamingMessage(prev => prev + text)
       }
-
-      // Wait a bit before clearing streaming state to ensure Firestore has updated
-      setTimeout(() => {
-        setIsStreaming(false)
-        setStreamingMessage('')
-      }, 500)
 
       return true
     } catch (error) {
