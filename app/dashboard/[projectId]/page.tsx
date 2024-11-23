@@ -16,17 +16,26 @@ interface ProjectPageProps {
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
+  console.log('Loading project page for ID:', params.projectId)
+  
   const session = await getServerSession(authOptions)
+  console.log('Session status:', session ? 'authenticated' : 'unauthenticated')
   
   if (!session) {
+    console.log('No session found, redirecting to signin')
     redirect('/auth/signin')
   }
 
   try {
+    console.log('Fetching project document...')
     const projectDoc = await adminDb.collection('projects').doc(params.projectId).get()
+    console.log('Project document exists:', projectDoc.exists)
+    
     const projectData = projectDoc.data()
+    console.log('Project data retrieved:', projectData ? 'yes' : 'no')
 
     if (!projectDoc.exists || !projectData) {
+      console.log('Project not found, rendering not found state')
       return (
         <div className="container py-8">
           <div className="flex flex-col items-center justify-center space-y-4">
@@ -42,6 +51,25 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       )
     }
 
+    // Verify project belongs to current user
+    if (projectData.userId !== session.user.id) {
+      console.log('Project does not belong to current user')
+      return (
+        <div className="container py-8">
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <h1 className="text-3xl font-bold">Access Denied</h1>
+            <p className="text-muted-foreground">You do not have permission to view this project.</p>
+            <Button asChild>
+              <Link href="/dashboard">
+                Return to Dashboard
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )
+    }
+
+    console.log('Rendering project page with data')
     const project = projectData as ProjectStatus
 
     return (

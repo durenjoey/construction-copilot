@@ -37,8 +37,31 @@ export default function ChatPage() {
   const [retryCount, setRetryCount] = useState(0)
   const [streamingMessage, setStreamingMessage] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [shouldScroll, setShouldScroll] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
+  // Detect mobile device on mount
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera
+      const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i
+      setIsMobile(mobileRegex.test(userAgent.toLowerCase()))
+    }
+    checkMobile()
+  }, [])
+
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      try {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+      } catch (error) {
+        console.error('Error scrolling:', error)
+      }
+    }
+  }
+
+  // Handle project data loading
   useEffect(() => {
     if (!params.projectId) return
 
@@ -55,6 +78,7 @@ export default function ChatPage() {
           return
         }
         setProject({ ...doc.data(), id: doc.id } as ProjectStatus)
+        setShouldScroll(true)
       },
       (error: Error) => {
         console.error('Error loading project:', error)
@@ -71,20 +95,22 @@ export default function ChatPage() {
     }
   }, [params.projectId, router, toast])
 
-  // Scroll to bottom whenever chat history changes or streaming occurs
+  // Handle scrolling separately
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    if (shouldScroll) {
+      scrollToBottom()
+      setShouldScroll(false)
+    }
+  }, [shouldScroll])
+
+  // Update scroll when new messages arrive or streaming changes
+  useEffect(() => {
+    if (project?.chatHistory || streamingMessage) {
+      setShouldScroll(true)
     }
   }, [project?.chatHistory, streamingMessage])
 
-  // Scroll to bottom when switching tabs
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
-    }
-  }, [activeTab])
-
+  // Handle tab changes
   useEffect(() => {
     const tab = searchParams.get('tab')
     if (tab && VALID_TABS.includes(tab as ChatType)) {
@@ -98,6 +124,7 @@ export default function ChatPage() {
     if (VALID_TABS.includes(value as ChatType)) {
       setActiveTab(value as ChatType)
       router.push(`/dashboard/${params.projectId}/chat?tab=${value}`)
+      setShouldScroll(true)
     }
   }
 
@@ -240,6 +267,21 @@ export default function ChatPage() {
     }
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      // On mobile, always treat Enter as a new line
+      if (isMobile) {
+        return
+      }
+      
+      // On desktop, Enter sends the message unless Shift is held
+      if (!e.shiftKey) {
+        e.preventDefault()
+        handleSubmit(e)
+      }
+    }
+  }
+
   const handleFileUpload = async (fileUrl: string, fileName: string, fileType: string, fileContent: string) => {
     setAttachments(prev => [...prev, { 
       url: fileUrl, 
@@ -334,97 +376,100 @@ export default function ChatPage() {
 
       <div className="flex-1 flex">
         <div className="flex-1 flex flex-col">
-          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-            <div className="space-y-6 max-w-3xl mx-auto">
-              {filteredChatHistory.map((message: ChatMessage) => (
-                <div
-                  key={message.id}
-                  className="space-y-3"
-                >
-                  <div className={cn(
-                    'flex items-start gap-3',
-                    message.role === 'assistant' ? 'flex-row' : 'flex-row-reverse'
-                  )}>
+          <div className="flex-1 relative">
+            <ScrollArea className="absolute inset-0 p-4">
+              <div className="space-y-6 max-w-3xl mx-auto">
+                {filteredChatHistory.map((message: ChatMessage) => (
+                  <div
+                    key={message.id}
+                    className="space-y-3"
+                  >
                     <div className={cn(
-                      'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
-                      message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                      'flex items-start gap-3',
+                      message.role === 'assistant' ? 'flex-row' : 'flex-row-reverse'
                     )}>
-                      {message.role === 'user' ? (
-                        <User className="h-5 w-5" />
-                      ) : (
-                        <Bot className="h-5 w-5" />
-                      )}
+                      <div className={cn(
+                        'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
+                        message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                      )}>
+                        {message.role === 'user' ? (
+                          <User className="h-5 w-5" />
+                        ) : (
+                          <Bot className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div
+                        className={cn(
+                          'rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]',
+                          message.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        )}
+                      >
+                        {formatMessage(message.content)}
+                      </div>
                     </div>
-                    <div
-                      className={cn(
-                        'rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]',
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      )}
-                    >
-                      {formatMessage(message.content)}
-                    </div>
-                  </div>
-                  {message.attachments && message.attachments.length > 0 && (
-                    <div className={cn(
-                      'flex gap-2 flex-wrap pl-11',
-                      message.role === 'user' && 'justify-end pr-11 pl-0'
-                    )}>
-                      {message.attachments.map((attachment: Attachment, index: number) => (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          className="max-w-[200px] group hover:bg-muted/80"
-                        >
-                          <a 
-                            href={attachment.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center"
+                    {message.attachments && message.attachments.length > 0 && (
+                      <div className={cn(
+                        'flex gap-2 flex-wrap pl-11',
+                        message.role === 'user' && 'justify-end pr-11 pl-0'
+                      )}>
+                        {message.attachments.map((attachment: Attachment, index: number) => (
+                          <Button
+                            key={index}
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="max-w-[200px] group hover:bg-muted/80"
                           >
-                            <FileText className="h-4 w-4 mr-2 flex-shrink-0 group-hover:text-primary" />
-                            <span className="truncate text-sm">{attachment.name}</span>
-                          </a>
-                        </Button>
-                      ))}
+                            <a 
+                              href={attachment.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center"
+                            >
+                              <FileText className="h-4 w-4 mr-2 flex-shrink-0 group-hover:text-primary" />
+                              <span className="truncate text-sm">{attachment.name}</span>
+                            </a>
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {isThinking && (
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
+                      <Bot className="h-5 w-5" />
                     </div>
-                  )}
-                </div>
-              ))}
-              {isThinking && (
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
-                    <Bot className="h-5 w-5" />
-                  </div>
-                  <div className="bg-muted rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>AI is thinking...</span>
+                    <div className="bg-muted rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>AI is thinking...</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-              {streamingMessage && (
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
-                    <Bot className="h-5 w-5" />
+                )}
+                {streamingMessage && (
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
+                      <Bot className="h-5 w-5" />
+                    </div>
+                    <div className="bg-muted rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]">
+                      {formatMessage(streamingMessage)}
+                    </div>
                   </div>
-                  <div className="bg-muted rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]">
-                    {formatMessage(streamingMessage)}
+                )}
+                {isLoading && retryCount > 0 && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Retrying... Attempt {retryCount + 1} of {MAX_RETRIES}</span>
                   </div>
-                </div>
-              )}
-              {isLoading && retryCount > 0 && (
-                <div className="flex items-center justify-center gap-2 text-sm text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Retrying... Attempt {retryCount + 1} of {MAX_RETRIES}</span>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
+          </div>
 
           <form onSubmit={handleSubmit} className="p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="max-w-3xl mx-auto space-y-4">
@@ -449,7 +494,8 @@ export default function ChatPage() {
                 <Textarea
                   value={input}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
-                  placeholder={`Type your ${activeTab} message...`}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`Type your ${activeTab} message...${isMobile ? '' : ' (Press Enter to send, Shift+Enter for new line)'}`}
                   className="min-h-[60px] resize-none"
                 />
                 <Button 

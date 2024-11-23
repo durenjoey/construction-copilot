@@ -5,56 +5,50 @@ import { Button } from 'components/ui/button'
 import { HardHat, Loader2 } from 'lucide-react'
 import { Card, CardHeader, CardContent } from 'components/ui/card'
 import { useEffect, useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useToast } from '@/hooks/use-toast'
 
 function SignInContent() {
   const { data: session, status } = useSession()
-  const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
-    if (status === 'authenticated' && session) {
-      // Ensure we're not in a loop by checking if we're already at the target URL
-      const currentPath = window.location.pathname
-      const targetPath = callbackUrl.startsWith('http') 
-        ? new URL(callbackUrl).pathname 
-        : callbackUrl
-
-      if (currentPath !== targetPath) {
-        router.push(callbackUrl)
-      }
-    }
-  }, [session, status, router, callbackUrl])
+    console.log('SignIn page mounted')
+    console.log('Auth status:', status)
+    console.log('Session:', session)
+    console.log('Callback URL:', callbackUrl)
+  }, [session, status, callbackUrl])
 
   const handleSignIn = async () => {
     try {
+      console.log('Initiating Google sign in...')
       setIsLoading(true)
       setError(null)
       
-      const result = await signIn('google', {
+      // Use redirect: true to let NextAuth handle the flow
+      await signIn('google', {
         callbackUrl,
-        redirect: false
+        redirect: true
       })
-      
-      if (result?.error) {
-        setError('Failed to sign in. Please try again.')
-        console.error('Sign in error:', result.error)
-      } else if (result?.url) {
-        router.push(result.url)
-      }
     } catch (error) {
+      console.error('Unexpected sign in error:', error)
       setError('An unexpected error occurred. Please try again.')
-      console.error('Sign in error:', error)
-    } finally {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      })
       setIsLoading(false)
     }
   }
 
-  // Only show loading state when we have a session and are redirecting
+  // Only show loading state when we have a session
   if (status === 'loading' && session) {
+    console.log('Showing loading state')
     return (
       <main className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

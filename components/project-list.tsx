@@ -4,27 +4,29 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { ProjectStatus } from '../lib/types'
 import { db, verifyFirebaseConnection } from '../lib/firebase'
-import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore'
+import { collection, onSnapshot, query, orderBy, where, getDocs } from 'firebase/firestore'
 import { Skeleton } from '../components/ui/skeleton'
 import Link from 'next/link'
 import { Button } from '../components/ui/button'
 import { MessageSquare, FileText } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useToast } from '../hooks/use-toast'
+import { useRouter, usePathname } from 'next/navigation'
 
 export function ProjectList() {
   const [projects, setProjects] = useState<ProjectStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
   const { data: session, status } = useSession()
   const { toast } = useToast()
+  const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
+    console.log('Current pathname:', pathname)
     console.log('Session status:', status)
     console.log('Session data:', session)
-  }, [session, status])
+  }, [pathname, session, status])
 
   useEffect(() => {
     async function initializeFirebase() {
@@ -65,62 +67,89 @@ export function ProjectList() {
       return
     }
 
-    try {
-      console.log('Setting up projects query for user:', session.user.id)
-      const projectsQuery = query(
-        collection(db, 'projects'),
-        where('userId', '==', session.user.id),
-        orderBy('createdAt', 'desc')
-      )
+    const userId = session.user.id
 
-      console.log('Setting up snapshot listener...')
-      const unsubscribe = onSnapshot(
-        projectsQuery,
-        (snapshot) => {
-          console.log('Received Firestore snapshot with', snapshot.docs.length, 'projects')
-          const projectsData = snapshot.docs.map(doc => {
-            const data = doc.data()
-            console.log('Processing project:', { id: doc.id, ...data })
-            return {
-              ...data,
+    async function fetchProjects() {
+      try {
+        console.log('Setting up projects query for user:', userId)
+        const projectsQuery = query(
+          collection(db, 'projects'),
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc')
+        )
+
+        // First, try to get projects directly
+        console.log('Fetching projects...')
+        const snapshot = await getDocs(projectsQuery)
+        console.log('Received Firestore snapshot with', snapshot.docs.length, 'projects')
+        
+        const projectsData = snapshot.docs.map(doc => {
+          const data = doc.data()
+          console.log('Processing project:', { id: doc.id, ...data })
+          return {
+            ...data,
+            id: doc.id
+          }
+        }) as ProjectStatus[]
+        
+        console.log('Setting projects state with:', projectsData)
+        setProjects(projectsData)
+        setLoading(false)
+        setError(null)
+
+        // Then set up real-time listener
+        console.log('Setting up snapshot listener...')
+        const unsubscribe = onSnapshot(
+          projectsQuery,
+          (snapshot) => {
+            console.log('Real-time update received with', snapshot.docs.length, 'projects')
+            const updatedProjects = snapshot.docs.map(doc => ({
+              ...doc.data(),
               id: doc.id
-            }
-          }) as ProjectStatus[]
-          
-          console.log('Setting projects state with:', projectsData)
-          setProjects(projectsData)
-          setLoading(false)
-          setError(null)
-        },
-        (error) => {
-          const errorMsg = 'Error loading projects'
-          console.error(errorMsg, error)
-          setError(errorMsg)
-          toast({
-            title: 'Error',
-            description: 'Failed to load projects. Please check your Firebase configuration and refresh the page.',
-            variant: 'destructive',
-          })
-          setLoading(false)
-        }
-      )
+            })) as ProjectStatus[]
+            
+            console.log('Updating projects state with:', updatedProjects)
+            setProjects(updatedProjects)
+          },
+          (error) => {
+            console.error('Snapshot listener error:', error)
+            toast({
+              title: 'Update Error',
+              description: 'Failed to receive real-time updates. Some changes may not appear immediately.',
+              variant: 'destructive',
+            })
+          }
+        )
 
-      return () => {
-        console.log('Cleaning up Firestore listener')
-        unsubscribe()
+        return () => {
+          console.log('Cleaning up Firestore listener')
+          unsubscribe()
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error)
+        setError('Failed to load projects')
+        toast({
+          title: 'Error',
+          description: 'Failed to load projects. Please check your connection and try again.',
+          variant: 'destructive',
+        })
+        setLoading(false)
       }
-    } catch (error) {
-      const errorMsg = 'Error setting up projects listener'
-      console.error(errorMsg, error)
-      setError(errorMsg)
-      toast({
-        title: 'Error',
-        description: 'Failed to set up projects listener. Please check your Firebase configuration.',
-        variant: 'destructive',
-      })
-      setLoading(false)
     }
+
+    fetchProjects()
   }, [session?.user?.id, toast])
+
+  const handleProjectClick = (projectId: string) => {
+    console.log('Navigating to project:', projectId)
+    router.push(`/dashboard/${projectId}`)
+  }
+
+  const handleChatClick = (e: React.MouseEvent, projectId: string) => {
+    e.stopPropagation()
+    console.log('Opening chat for project:', projectId)
+    router.push(`/dashboard/${projectId}/chat?tab=scope`)
+  }
 
   if (error) {
     return (
@@ -182,38 +211,31 @@ export function ProjectList() {
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
       {projects.map((project) => (
-        <Link key={project.id} href={`/dashboard/${project.id}`}>
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-            <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">{project.name || 'Untitled Project'}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                {project.description || 'No description provided'}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button variant="outline" size="sm" className="w-full text-sm py-2" asChild>
-                  <span>
-                    <FileText className="h-4 w-4 mr-2" />
-                    <span className="whitespace-nowrap">View Details</span>
-                  </span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full text-sm py-2" 
-                  onClick={(e) => {
-                    e.preventDefault()
-                    router.push(`/dashboard/${project.id}/chat`)
-                  }}
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  <span className="whitespace-nowrap">Open Chat</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+        <Card 
+          key={project.id} 
+          className="cursor-pointer hover:shadow-lg transition-shadow h-full"
+          onClick={() => handleProjectClick(project.id)}
+        >
+          <CardHeader>
+            <CardTitle className="text-lg sm:text-xl">{project.name || 'Untitled Project'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+              {project.description || 'No description provided'}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full text-sm py-2"
+                onClick={(e) => handleChatClick(e, project.id)}
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                <span className="whitespace-nowrap">Open Chat</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   )

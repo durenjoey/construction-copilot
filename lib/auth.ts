@@ -63,12 +63,39 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async redirect({ url, baseUrl }) {
-      // If the url is an absolute URL and matches the base URL origin, allow it
-      if (url.startsWith(baseUrl)) return url
-      // If it's a relative URL, prefix it with the base URL
-      if (url.startsWith('/')) return `${baseUrl}${url}`
+      console.log('Redirect Callback:', { url, baseUrl })
+      // Always allow relative URLs
+      if (url.startsWith('/')) {
+        console.log('Redirecting to relative URL:', url)
+        return `${baseUrl}${url}`
+      }
+      // Allow redirects to the same origin
+      if (url.startsWith(baseUrl)) {
+        console.log('Redirecting to same origin URL:', url)
+        return url
+      }
       // Default to the dashboard
+      console.log('Redirecting to default URL:', `${baseUrl}/dashboard`)
       return `${baseUrl}/dashboard`
+    },
+    async signIn({ user, account, profile }) {
+      console.log('SignIn Callback:', { user, account, profile })
+      if (!user.email) {
+        console.log('No email provided, rejecting sign in')
+        return false
+      }
+      return true
+    }
+  },
+  events: {
+    async signIn(message) {
+      console.log('SignIn Event:', message)
+    },
+    async signOut(message) {
+      console.log('SignOut Event:', message)
+    },
+    async session(message) {
+      console.log('Session Event:', message)
     }
   },
   debug: process.env.NODE_ENV === 'development',
