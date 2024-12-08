@@ -1,22 +1,33 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { ProjectStatus } from '../lib/types'
-import { db, verifyFirebaseConnection } from '../lib/firebase'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ProjectStatus } from '@/lib/types'
+import { db, verifyFirebaseConnection } from '@/lib/firebase'
 import { collection, onSnapshot, query, orderBy, where, getDocs } from 'firebase/firestore'
-import { Skeleton } from '../components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
-import { Button } from '../components/ui/button'
-import { MessageSquare, FileText } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { MessageSquare, FileText, Trash2 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { useToast } from '../hooks/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { useRouter, usePathname } from 'next/navigation'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export function ProjectList() {
   const [projects, setProjects] = useState<ProjectStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null)
   const { data: session, status } = useSession()
   const { toast } = useToast()
   const router = useRouter()
@@ -151,6 +162,32 @@ export function ProjectList() {
     router.push(`/dashboard/${projectId}/chat?tab=scope`)
   }
 
+  const handleDeleteClick = async (projectId: string) => {
+    try {
+      const response = await fetch(`/api/projects/delete?projectId=${projectId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete project');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Project deleted successfully',
+      });
+
+      setProjectToDelete(null);
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete project. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (error) {
     return (
       <Card>
@@ -209,46 +246,80 @@ export function ProjectList() {
   }
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-      {projects.map((project) => (
-        <Card 
-          key={project.id} 
-          className="cursor-pointer hover:shadow-lg transition-shadow h-full hover:bg-accent hover:text-accent-foreground"
-          onClick={() => handleProjectClick(project.id)}
-        >
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">{project.name || 'Untitled Project'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-              {project.description || 'No description provided'}
-            </p>
-            <div className="flex flex-col gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full text-sm py-2"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleProjectClick(project.id)
-                }}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                <span className="whitespace-nowrap">Project Details</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full text-sm py-2"
-                onClick={(e) => handleChatClick(e, project.id)}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                <span className="whitespace-nowrap">Open Chat</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {projects.map((project) => (
+          <Card 
+            key={project.id} 
+            className="cursor-pointer hover:shadow-lg transition-shadow h-full hover:bg-accent hover:text-accent-foreground"
+            onClick={() => handleProjectClick(project.id)}
+          >
+            <CardHeader>
+              <CardTitle className="text-lg sm:text-xl">{project.name || 'Untitled Project'}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                {project.description || 'No description provided'}
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-sm py-2"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleProjectClick(project.id)
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  <span className="whitespace-nowrap">Project Details</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-sm py-2"
+                  onClick={(e) => handleChatClick(e, project.id)}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  <span className="whitespace-nowrap">Open Chat</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-sm py-2 hover:bg-destructive hover:text-destructive-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setProjectToDelete(project.id)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  <span className="whitespace-nowrap">Delete Project</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <AlertDialog open={!!projectToDelete} onOpenChange={() => setProjectToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the project and all its data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => projectToDelete && handleDeleteClick(projectToDelete)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

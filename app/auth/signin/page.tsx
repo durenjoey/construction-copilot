@@ -1,9 +1,9 @@
 'use client'
 
 import { signIn, useSession } from 'next-auth/react'
-import { Button } from 'components/ui/button'
+import { Button } from '@/components/ui/button'
 import { HardHat, Loader2 } from 'lucide-react'
-import { Card, CardHeader, CardContent } from 'components/ui/card'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
