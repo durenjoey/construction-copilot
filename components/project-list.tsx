@@ -213,7 +213,7 @@ export function ProjectList() {
       {projects.map((project) => (
         <Card 
           key={project.id} 
-          className="cursor-pointer hover:shadow-lg transition-shadow h-full"
+          className="cursor-pointer hover:shadow-lg transition-shadow h-full hover:bg-accent hover:text-accent-foreground"
           onClick={() => handleProjectClick(project.id)}
         >
           <CardHeader>
@@ -223,7 +223,19 @@ export function ProjectList() {
             <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
               {project.description || 'No description provided'}
             </p>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full text-sm py-2"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleProjectClick(project.id)
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                <span className="whitespace-nowrap">Project Details</span>
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm" 

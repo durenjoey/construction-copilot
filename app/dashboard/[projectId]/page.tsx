@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from 'lib/auth'
-import { FileUpload } from 'components/file-upload'
 import { Button } from 'components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from 'components/ui/card'
 import { FileText, ClipboardList, Lightbulb } from 'lucide-react'
@@ -76,26 +75,28 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       <div className="container py-8 space-y-8">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">{project.name || 'Untitled Project'}</h1>
-          <div className="flex gap-2">
-            <Link href={`/dashboard/${params.projectId}/chat?tab=scope`}>
-              <Button variant="outline">
-                <FileText className="mr-2 h-4 w-4" />
-                Scope Chat
-              </Button>
-            </Link>
-            <Link href={`/dashboard/${params.projectId}/chat?tab=proposal`}>
-              <Button variant="outline">
-                <ClipboardList className="mr-2 h-4 w-4" />
-                Proposal Chat
-              </Button>
-            </Link>
-            <Link href={`/dashboard/${params.projectId}/lessons`}>
-              <Button variant="outline">
-                <Lightbulb className="mr-2 h-4 w-4" />
-                Lessons Repository
-              </Button>
-            </Link>
-          </div>
+          <Link href={`/dashboard/${params.projectId}/lessons`}>
+            <Button variant="outline">
+              <Lightbulb className="mr-2 h-4 w-4" />
+              Lessons Repository
+            </Button>
+          </Link>
+        </div>
+
+        {/* Main Action Buttons */}
+        <div className="flex justify-center gap-4 py-6">
+          <Link href={`/dashboard/${params.projectId}/chat?tab=scope`}>
+            <Button size="lg" className="min-w-[200px]">
+              <FileText className="mr-2 h-5 w-5" />
+              Start Scope
+            </Button>
+          </Link>
+          <Link href={`/dashboard/${params.projectId}/chat?tab=proposal`}>
+            <Button size="lg" className="min-w-[200px]">
+              <ClipboardList className="mr-2 h-5 w-5" />
+              Review Proposal
+            </Button>
+          </Link>
         </div>
         
         <div className="grid gap-6 md:grid-cols-2">
@@ -158,11 +159,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               </CardContent>
             </Card>
           )}
-
-          <div className="space-y-4 md:col-span-2">
-            <h2 className="text-xl font-semibold">Upload Documents</h2>
-            <FileUpload />
-          </div>
         </div>
       </div>
     )

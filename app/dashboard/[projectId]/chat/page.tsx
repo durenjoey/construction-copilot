@@ -473,23 +473,22 @@ export default function ChatPage() {
 
           <form onSubmit={handleSubmit} className="p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="max-w-3xl mx-auto space-y-4">
-              {activeTab === 'proposal' && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <FileUpload onUploadComplete={handleFileUpload} />
-                  {attachments.map((attachment, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
-                      className="max-w-[200px] group hover:bg-destructive/10"
-                    >
-                      <FileText className="h-4 w-4 mr-2 flex-shrink-0 group-hover:text-destructive" />
-                      <span className="truncate text-sm group-hover:text-destructive">{attachment.name}</span>
-                    </Button>
-                  ))}
-                </div>
-              )}
+              {/* Show file upload for both scope and proposal chats */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <FileUpload onUploadComplete={handleFileUpload} />
+                {attachments.map((attachment, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                    className="max-w-[200px] group hover:bg-destructive/10"
+                  >
+                    <FileText className="h-4 w-4 mr-2 flex-shrink-0 group-hover:text-destructive" />
+                    <span className="truncate text-sm group-hover:text-destructive">{attachment.name}</span>
+                  </Button>
+                ))}
+              </div>
               <div className="flex gap-2">
                 <Textarea
                   value={input}
