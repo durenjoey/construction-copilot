@@ -127,6 +127,9 @@ export function LessonForm({ projectId }: LessonFormProps) {
         rootCause: '',
         solution: ''
       })
+
+      // Refresh the page to show updated data
+      window.location.reload()
     } catch (error) {
       console.error('Error adding lesson:', error)
       if (error instanceof Error) {

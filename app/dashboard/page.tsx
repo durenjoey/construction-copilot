@@ -23,11 +23,11 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-            <Link href="/privacy-policy" className="hover:text-foreground transition-colors">
+            <Link href="/privacy-policy" className="hover:text-foreground transition-colors" target="_blank" rel="noopener noreferrer">
               Privacy Policy
             </Link>
             <span>|</span>
-            <Link href="/terms" className="hover:text-foreground transition-colors">
+            <Link href="/terms" className="hover:text-foreground transition-colors" target="_blank" rel="noopener noreferrer">
               Terms of Service
             </Link>
           </div>
