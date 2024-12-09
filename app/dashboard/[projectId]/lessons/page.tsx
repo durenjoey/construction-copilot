@@ -9,6 +9,7 @@ import { adminDb } from '../../../../lib/firebase-admin'
 import { ProjectStatus, LessonLearned } from '../../../../lib/types'
 import { LessonForm } from '../../../../components/lesson-form'
 import { EditLessonForm } from '../../../../components/edit-lesson-form'
+import { DeleteLessonButton } from '../../../../components/delete-lesson-button'
 import { unstable_noStore } from 'next/cache'
 
 interface LessonsPageProps {
@@ -79,15 +80,21 @@ export default async function LessonsPage({ params }: LessonsPageProps) {
                       <Lightbulb className="h-5 w-5" />
                       {lesson.title}
                     </CardTitle>
-                    <EditLessonForm 
-                      projectId={params.projectId} 
-                      lesson={lesson}
-                      trigger={
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      }
-                    />
+                    <div className="flex items-center gap-2">
+                      <EditLessonForm 
+                        projectId={params.projectId} 
+                        lesson={lesson}
+                        trigger={
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
+                      <DeleteLessonButton 
+                        projectId={params.projectId}
+                        lessonId={lesson.id}
+                      />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
