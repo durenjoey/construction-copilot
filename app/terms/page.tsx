@@ -189,7 +189,7 @@ export default function Terms() {
             <ul className="list-disc pl-6">
               <li>Services are marketed and intended for use in the United States</li>
               <li>Users outside the USA use the Services at their own risk</li>
-              <li>Compliance with local regulations is user's responsibility</li>
+              <li>Compliance with local regulations is user&apos;s responsibility</li>
             </ul>
           </div>
         </div>
@@ -255,7 +255,7 @@ export default function Terms() {
             <p className="font-semibold">9.1 Termination Rights</p>
             <p>Either party may terminate:</p>
             <ul className="list-disc pl-6">
-              <li>At will with 30 days' notice</li>
+              <li>At will with 30 days&apos; notice</li>
               <li>Immediately for material breach</li>
               <li>Immediately for professional misconduct</li>
             </ul>
