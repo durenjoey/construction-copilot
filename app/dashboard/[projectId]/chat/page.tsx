@@ -1,19 +1,19 @@
-'use client'
+"use client";
 
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { ScrollArea } from 'components/ui/scroll-area'
-import { Button } from 'components/ui/button'
-import { Textarea } from 'components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from 'components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FileText, ClipboardList, Send, Loader2, Download, ArrowLeft, AlertCircle, User, Bot } from 'lucide-react'
-import { cn } from 'lib/utils'
-import { ChatMessage, ProjectStatus, Attachment } from 'lib/types'
-import { db } from 'lib/firebase'
+import { cn } from '@/lib/utils'
+import { ChatMessage, ProjectStatus, Attachment } from '@/lib/types'
+import { db } from '@/lib/firebase'
 import { doc, onSnapshot, DocumentSnapshot } from 'firebase/firestore'
-import { useToast } from 'hooks/use-toast'
-import { FileUpload } from 'components/file-upload'
-import { SidePanel } from 'components/side-panel'
+import { useToast } from '@/hooks/use-toast'
+import { FileUpload } from '@/components/file-upload'
+import { SidePanel } from '@/components/side-panel'
 import ReactMarkdown from 'react-markdown'
 import Link from 'next/link'
 
@@ -40,6 +40,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [shouldScroll, setShouldScroll] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Detect mobile device on mount
   useEffect(() => {
@@ -50,6 +51,23 @@ export default function ChatPage() {
     }
     checkMobile()
   }, [])
+
+  // Auto-resize textarea as content changes
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const adjustHeight = () => {
+      textarea.style.height = 'auto'
+      const newHeight = Math.min(textarea.scrollHeight, 200) // Max height of 200px
+      textarea.style.height = `${newHeight}px`
+    }
+
+    textarea.addEventListener('input', adjustHeight)
+    adjustHeight() // Initial adjustment
+
+    return () => textarea.removeEventListener('input', adjustHeight)
+  }, [input])
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -352,7 +370,7 @@ export default function ChatPage() {
                 Back to Project
               </Link>
             </Button>
-            {activeTab === 'scope' && project.scope && (
+            {activeTab === 'scope' && project?.scope && (
               <Button
                 variant="outline"
                 size="sm"
@@ -377,8 +395,14 @@ export default function ChatPage() {
       <div className="flex-1 flex">
         <div className="flex-1 flex flex-col">
           <div className="flex-1 relative">
-            <ScrollArea className="absolute inset-0 p-4">
-              <div className="space-y-6 max-w-3xl mx-auto">
+            <ScrollArea className="absolute inset-0 sm:p-4">
+              <div className={cn(
+                "space-y-6",
+                // On mobile: full width with smaller padding
+                "px-2 sm:px-0 mx-0",
+                // On desktop: centered with max-width
+                "sm:max-w-3xl sm:mx-auto"
+              )}>
                 {filteredChatHistory.map((message: ChatMessage) => (
                   <div
                     key={message.id}
@@ -400,7 +424,9 @@ export default function ChatPage() {
                       </div>
                       <div
                         className={cn(
-                          'rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]',
+                          'rounded-lg px-4 py-3',
+                          // Adjusted max-width for better mobile stability
+                          'max-w-[75%] sm:max-w-[75%]',
                           message.role === 'user'
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted'
@@ -442,7 +468,7 @@ export default function ChatPage() {
                     <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
                       <Bot className="h-5 w-5" />
                     </div>
-                    <div className="bg-muted rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]">
+                    <div className="bg-muted rounded-lg px-4 py-3 max-w-[75%]">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>AI is thinking...</span>
@@ -455,7 +481,7 @@ export default function ChatPage() {
                     <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
                       <Bot className="h-5 w-5" />
                     </div>
-                    <div className="bg-muted rounded-lg px-4 py-3 max-w-[85%] sm:max-w-[75%]">
+                    <div className="bg-muted rounded-lg px-4 py-3 max-w-[75%]">
                       {formatMessage(streamingMessage)}
                     </div>
                   </div>
@@ -471,8 +497,14 @@ export default function ChatPage() {
             </ScrollArea>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="max-w-3xl mx-auto space-y-4">
+          <form onSubmit={handleSubmit} className="p-2 sm:p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className={cn(
+              "space-y-4",
+              // On mobile: full width with minimal padding
+              "w-full px-0",
+              // On desktop: centered with max-width
+              "sm:max-w-3xl sm:mx-auto"
+            )}>
               {/* Show file upload for both scope and proposal chats */}
               <div className="flex items-center gap-2 flex-wrap">
                 <FileUpload onUploadComplete={handleFileUpload} />
@@ -491,11 +523,13 @@ export default function ChatPage() {
               </div>
               <div className="flex gap-2">
                 <Textarea
+                  ref={textareaRef}
                   value={input}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={`Type your ${activeTab} message...${isMobile ? '' : ' (Press Enter to send, Shift+Enter for new line)'}`}
-                  className="min-h-[60px] resize-none"
+                  className="min-h-[60px] max-h-[200px] resize-none overflow-y-auto"
+                  rows={1}
                 />
                 <Button 
                   type="submit" 
