@@ -7,6 +7,14 @@ export interface ProjectStatus {
   proposal?: Proposal
   lessonsLearned?: LessonLearned[]
   chatHistory?: ChatMessage[]
+  dailyReports?: DailyReport[]
+  number?: string
+  location?: string
+}
+
+// Serialized version for client-side use
+export interface SerializedProjectStatus extends ProjectStatus {
+  lessonsLearned?: (LessonLearned & { timestamp: string })[]
 }
 
 export interface Scope {
@@ -56,4 +64,30 @@ export interface ChatMessage {
   type: 'scope' | 'proposal'
   attachments?: Attachment[]
   timestamp: string
+}
+
+export interface DailyReport {
+  id: string
+  date: string
+  weather: {
+    type: 'Sunny' | 'Cloudy' | 'Rainy' | 'Stormy'
+    description: string
+  }
+  manpower: {
+    id: number
+    trade: string
+    count: number
+  }[]
+  workAreas: {
+    id: number
+    description: string
+  }[]
+  photos: {
+    id: number
+    url: string
+  }[]
+  notes: string
+  safety: string
+  createdAt: string
+  updatedAt: string
 }

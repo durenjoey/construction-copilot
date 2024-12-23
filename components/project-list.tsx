@@ -1,16 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ProjectStatus } from '@/lib/types'
-import { db, verifyFirebaseConnection } from '@/lib/firebase'
+import { Card, CardContent, CardHeader, CardTitle } from 'components/ui/card'
+import { ProjectStatus } from 'lib/types'
+import { db, verifyFirebaseConnection } from 'lib/firebase'
 import { collection, onSnapshot, query, orderBy, where, getDocs } from 'firebase/firestore'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Skeleton } from 'components/ui/skeleton'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { MessageSquare, FileText, Trash2 } from 'lucide-react'
+import { Button } from 'components/ui/button'
+import { MessageSquare, FileText, Trash2, ClipboardList } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from 'hooks/use-toast'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   AlertDialog,
@@ -21,7 +21,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "components/ui/alert-dialog"
 
 export function ProjectList() {
   const [projects, setProjects] = useState<ProjectStatus[]>([])
@@ -162,6 +162,12 @@ export function ProjectList() {
     router.push(`/dashboard/${projectId}/chat?tab=scope`)
   }
 
+  const handleDailyReportsClick = (e: React.MouseEvent, projectId: string) => {
+    e.stopPropagation()
+    console.log('Opening daily reports for project:', projectId)
+    router.push(`/dashboard/${projectId}/daily-reports`)
+  }
+
   const handleDeleteClick = async (projectId: string) => {
     try {
       const response = await fetch(`/api/projects/delete?projectId=${projectId}`, {
@@ -282,6 +288,15 @@ export function ProjectList() {
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   <span className="whitespace-nowrap">Open Chat</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-sm py-2"
+                  onClick={(e) => handleDailyReportsClick(e, project.id)}
+                >
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  <span className="whitespace-nowrap">Daily Reports</span>
                 </Button>
                 <Button 
                   variant="outline" 
