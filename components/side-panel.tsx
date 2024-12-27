@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from 'components/ui/card'
-import { Sheet, SheetContent, SheetTrigger } from 'components/ui/sheet'
-import { Button } from 'components/ui/button'
-import { cn } from 'lib/utils'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface SidePanelProps {
   title: string

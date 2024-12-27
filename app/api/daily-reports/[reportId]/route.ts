@@ -79,17 +79,25 @@ export async function PUT(
     const now = new Date().toISOString();
 
     // Update the report
-    await adminDb
+    const reportRef = adminDb
       .collection('projects')
       .doc(projectId)
       .collection('dailyReports')
-      .doc(params.reportId)
-      .update({
-        ...data,
-        updatedAt: now
-      });
+      .doc(params.reportId);
 
-    return new NextResponse('Report updated successfully', { status: 200 });
+    await reportRef.update({
+      ...data,
+      updatedAt: now
+    });
+
+    // Get the updated report
+    const updatedDoc = await reportRef.get();
+    const updatedReport = {
+      id: updatedDoc.id,
+      ...updatedDoc.data()
+    };
+
+    return NextResponse.json(updatedReport);
   } catch (error) {
     console.error('Error updating daily report:', error);
     return new NextResponse('Internal Server Error', { status: 500 });

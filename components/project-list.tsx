@@ -1,16 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from 'components/ui/card'
-import { ProjectStatus } from 'lib/types'
-import { db, verifyFirebaseConnection } from 'lib/firebase'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ProjectStatus } from '@/lib/types'
+import { db, verifyFirebaseConnection } from '@/lib/firebase'
 import { collection, onSnapshot, query, orderBy, where, getDocs } from 'firebase/firestore'
-import { Skeleton } from 'components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
-import { Button } from 'components/ui/button'
+import { Button } from '@/components/ui/button'
 import { MessageSquare, FileText, Trash2, ClipboardList } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { useToast } from 'hooks/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   AlertDialog,
@@ -21,7 +21,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog"
 
 export function ProjectList() {
   const [projects, setProjects] = useState<ProjectStatus[]>([])

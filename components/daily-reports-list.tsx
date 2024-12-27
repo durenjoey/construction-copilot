@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Search, Calendar, Filter, ChevronDown, ChevronRight, Users, Sun, CloudRain, Cloud } from 'lucide-react';
-import { Card, CardContent } from 'components/ui/card';
-import { Button } from 'components/ui/button';
-import { Input } from 'components/ui/input';
-import { useToast } from 'hooks/use-toast';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { DailyReport } from 'lib/types';
+import { DailyReport } from '@/lib/types';
 
 interface DailyReportsListProps {
   projectId: string;

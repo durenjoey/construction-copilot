@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Camera, Send, Plus, X, Cloud, Sun, CloudRain, CloudLightning } from 'lucide-react';
-import { Card, CardContent } from 'components/ui/card';
-import { Button } from 'components/ui/button';
-import { Input } from 'components/ui/input';
-import { Label } from 'components/ui/label';
-import { Textarea } from 'components/ui/textarea';
-import { Alert, AlertDescription } from 'components/ui/alert';
-import { useToast } from 'hooks/use-toast';
+import { Send, Plus, X, Cloud, Sun, CloudRain, CloudLightning } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
+import { ImageUpload } from '@/components/image-upload';
 
 interface Worker {
   id: number;
@@ -211,8 +212,8 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
     }]);
   };
 
-  const handlePhotoUpload = () => {
-    const newPhotos = [...photos, { id: Date.now(), url: '/api/placeholder/150/150' }];
+  const handlePhotoUpload = (imageUrl: string) => {
+    const newPhotos = [...photos, { id: Date.now(), url: imageUrl }];
     setPhotos(newPhotos.slice(0, 6));
   };
 
@@ -251,6 +252,18 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
 
       if (!response.ok) {
         throw new Error(`Failed to ${reportId ? 'update' : 'submit'} daily report`);
+      }
+
+      const updatedReport = await response.json();
+      
+      // Update local state with the returned data
+      if (reportId) {
+        setManpower(updatedReport.manpower || []);
+        setWorkAreas(updatedReport.workAreas || []);
+        setPhotos(updatedReport.photos || []);
+        setNotes(updatedReport.notes || '');
+        setSafety(updatedReport.safety || '');
+        setWeather(updatedReport.weather || { type: '', description: '' });
       }
 
       toast({
@@ -426,13 +439,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
               </div>
             ))}
             {photos.length < 6 && (
-              <button
-                onClick={handlePhotoUpload}
-                className="aspect-square bg-gray-100 rounded-lg flex flex-col items-center justify-center hover:bg-gray-200"
-              >
-                <Camera className="h-6 w-6 mb-1 text-gray-600" />
-                <span className="text-sm text-gray-600">Add Photo</span>
-              </button>
+              <ImageUpload onUploadComplete={handlePhotoUpload} />
             )}
           </div>
         </Section>
