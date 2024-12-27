@@ -13,19 +13,16 @@ export default function DailyReportPage() {
 
   return (
     <div className="container py-6">
-      <div className="mb-6">
-        <Button 
-          variant="ghost" 
-          asChild
-          className="mb-4"
-        >
-          <Link href={`/dashboard/${projectId}/daily-reports`}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Reports
-          </Link>
-        </Button>
-        <h1 className="text-2xl font-bold">Daily Report Details</h1>
-      </div>
+      <Button 
+        variant="ghost" 
+        asChild
+        className="mb-6"
+      >
+        <Link href={`/dashboard/${projectId}/daily-reports`}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Reports
+        </Link>
+      </Button>
       <DailyReportForm reportId={reportId} />
     </div>
   );

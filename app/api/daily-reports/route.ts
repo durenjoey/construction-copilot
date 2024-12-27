@@ -9,20 +9,20 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return new NextResponse('Unauthorized', { status: 401 })
+      return NextResponse.json({ error: 'You must be logged in to access this resource' }, { status: 401 })
     }
 
     const { searchParams } = new URL(req.url)
     const projectId = searchParams.get('projectId')
     
     if (!projectId) {
-      return new NextResponse('Project ID is required', { status: 400 })
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
     }
 
     // Get project to verify ownership
     const projectDoc = await adminDb.collection('projects').doc(projectId).get()
     if (!projectDoc.exists || projectDoc.data()?.userId !== session.user.id) {
-      return new NextResponse('Project not found', { status: 404 })
+      return NextResponse.json({ error: 'Project not found or you do not have access to it' }, { status: 404 })
     }
 
     // Get all daily reports for the project
@@ -41,7 +41,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(reports)
   } catch (error) {
     console.error('Error fetching daily reports:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+    return NextResponse.json({ 
+      error: 'Failed to fetch daily reports',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 
@@ -50,20 +54,20 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return new NextResponse('Unauthorized', { status: 401 })
+      return NextResponse.json({ error: 'You must be logged in to access this resource' }, { status: 401 })
     }
 
     const { searchParams } = new URL(req.url)
     const projectId = searchParams.get('projectId')
     
     if (!projectId) {
-      return new NextResponse('Project ID is required', { status: 400 })
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
     }
 
     // Get project to verify ownership
     const projectDoc = await adminDb.collection('projects').doc(projectId).get()
     if (!projectDoc.exists || projectDoc.data()?.userId !== session.user.id) {
-      return new NextResponse('Project not found', { status: 404 })
+      return NextResponse.json({ error: 'Project not found or you do not have access to it' }, { status: 404 })
     }
 
     const data = await req.json()
@@ -92,6 +96,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(report)
   } catch (error) {
     console.error('Error creating daily report:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+    return NextResponse.json({ 
+      error: 'Failed to create daily report',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }

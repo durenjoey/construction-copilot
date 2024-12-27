@@ -3,14 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Send, Plus, X, Cloud, Sun, CloudRain, CloudLightning } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
-import { ImageUpload } from '@/components/image-upload';
+import { Card, CardContent } from 'components/ui/card';
+import { Button } from 'components/ui/button';
+import { Input } from 'components/ui/input';
+import { Label } from 'components/ui/label';
+import { Textarea } from 'components/ui/textarea';
+import { Alert, AlertDescription } from 'components/ui/alert';
+import { useToast } from 'hooks/use-toast';
+import { ImageUpload } from 'components/image-upload';
 
 interface Worker {
   id: number;
@@ -159,17 +159,28 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
   });
   const [customTrade, setCustomTrade] = useState('');
   const [customCount, setCustomCount] = useState('');
-  const [loading, setLoading] = useState(reportId ? true : false);
+  const [loading, setLoading] = useState(true);
+  const [projectTitle, setProjectTitle] = useState('');
+  const [description, setDescription] = useState('');
 
   useEffect(() => {
-    if (reportId) {
-      const fetchReport = async () => {
-        try {
-          const response = await fetch(`/api/daily-reports/${reportId}?projectId=${projectId}`);
-          if (!response.ok) {
+    const fetchData = async () => {
+      try {
+        // Fetch project details
+        const projectResponse = await fetch(`/api/projects/${projectId}`);
+        if (!projectResponse.ok) {
+          throw new Error('Failed to fetch project');
+        }
+        const projectData = await projectResponse.json();
+        setProjectTitle(projectData.name);
+
+        // Fetch report if editing
+        if (reportId) {
+          const reportResponse = await fetch(`/api/daily-reports/${reportId}?projectId=${projectId}`);
+          if (!reportResponse.ok) {
             throw new Error('Failed to fetch report');
           }
-          const data = await response.json();
+          const data = await reportResponse.json();
           
           setManpower(data.manpower || []);
           setWorkAreas(data.workAreas || []);
@@ -177,20 +188,29 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
           setNotes(data.notes || '');
           setSafety(data.safety || '');
           setWeather(data.weather || { type: '', description: '' });
-        } catch (error) {
-          console.error('Error fetching report:', error);
+          setDescription(data.description || '');
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        if (error instanceof Error) {
           toast({
             title: "Error",
-            description: "Failed to load report data. Please try again.",
+            description: error.message,
             variant: "destructive",
           });
-        } finally {
-          setLoading(false);
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to load data. Please try again.",
+            variant: "destructive",
+          });
         }
-      };
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      fetchReport();
-    }
+    fetchData();
   }, [reportId, projectId, toast]);
 
   const addTrade = (tradeName: string) => {
@@ -241,6 +261,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
         },
         body: JSON.stringify({
           date: new Date().toISOString(),
+          description,
           weather,
           manpower,
           workAreas,
@@ -264,6 +285,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
         setNotes(updatedReport.notes || '');
         setSafety(updatedReport.safety || '');
         setWeather(updatedReport.weather || { type: '', description: '' });
+        setDescription(updatedReport.description || '');
       }
 
       toast({
@@ -300,12 +322,22 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white border-b">
         <div className="max-w-2xl mx-auto px-4 py-3 space-y-4">
-          <div className="flex items-center gap-3">
-            <Input
-              type="date"
-              defaultValue={new Date().toISOString().split('T')[0]}
-              className="w-32"
-            />
+          <div className="flex flex-col gap-3">
+            <h1 className="text-2xl font-bold">Daily Report: {projectTitle}</h1>
+            <div className="flex gap-3">
+              <Input
+                type="date"
+                defaultValue={new Date().toISOString().split('T')[0]}
+                className="w-32"
+              />
+              <Input
+                type="text"
+                placeholder="Report Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="flex-1"
+              />
+            </div>
           </div>
           
           <div className="space-y-2">

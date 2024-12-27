@@ -39,17 +39,18 @@ export const DailyReportsList: React.FC<DailyReportsListProps> = ({ projectId })
       try {
         const response = await fetch(`/api/daily-reports?projectId=${projectId}`);
         if (!response.ok) {
-          throw new Error('Failed to fetch daily reports');
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to fetch daily reports');
         }
         const data = await response.json();
         setReports(data);
         setError(null);
       } catch (error) {
         console.error('Error fetching daily reports:', error);
-        setError('Failed to load daily reports');
+        setError(error instanceof Error ? error.message : 'Failed to load daily reports');
         toast({
           title: "Error",
-          description: "Failed to load daily reports. Please try again.",
+          description: error instanceof Error ? error.message : "Failed to load daily reports. Please try again.",
           variant: "destructive",
         });
       } finally {

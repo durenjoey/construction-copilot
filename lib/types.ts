@@ -69,6 +69,7 @@ export interface ChatMessage {
 export interface DailyReport {
   id: string
   date: string
+  description: string
   weather: {
     type: 'Sunny' | 'Cloudy' | 'Rainy' | 'Stormy'
     description: string
