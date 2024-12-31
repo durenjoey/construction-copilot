@@ -4,6 +4,7 @@ import { Providers } from '../components/providers'
 import { Toaster } from '../components/ui/toaster'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../lib/auth'
+import { headers } from 'next/headers'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,7 +19,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const session = await getServerSession(authOptions)
-  console.log('Root layout session:', session ? 'authenticated' : 'unauthenticated')
+  const headersList = headers()
 
   return (
     <html lang="en" suppressHydrationWarning>

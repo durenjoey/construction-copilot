@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, Calendar, Filter, ChevronDown, ChevronRight, Users, Sun, CloudRain, Cloud } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
+import { Search, Calendar, Filter, ChevronDown, ChevronRight, Users, Sun, CloudRain, Cloud, MessageSquare } from 'lucide-react';
+import { Card, CardContent } from 'components/ui/card';
+import { Button } from 'components/ui/button';
+import { Input } from 'components/ui/input';
+import { useToast } from 'hooks/use-toast';
 import Link from 'next/link';
-import { DailyReport } from '@/lib/types';
+import { DailyReport } from 'lib/types';
 
 interface DailyReportsListProps {
   projectId: string;
@@ -63,7 +63,9 @@ export const DailyReportsList: React.FC<DailyReportsListProps> = ({ projectId })
 
   const filteredReports = reports.filter(report => {
     const matchesSearch = searchTerm
-      ? (report.notes?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      ? (report.summary?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+        (report.notes?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+        (report.clientComments?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
         (report.workAreas?.some(area => 
           area.description.toLowerCase().includes(searchTerm.toLowerCase())
         ) || false) ||
@@ -167,45 +169,75 @@ export const DailyReportsList: React.FC<DailyReportsListProps> = ({ projectId })
             key={report.id} 
             href={`/dashboard/${projectId}/daily-reports/${report.id}`}
           >
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <div className="text-sm text-gray-500">
-                      {new Date(report.date).toLocaleDateString()}
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex-1">
+                    <div className="text-lg font-semibold text-gray-900">
+                      {new Date(report.date).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
                     </div>
-                    <div className="flex items-center gap-4 mt-1">
-                      <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4 text-blue-500" />
-                        <span className="font-medium">
-                          {report.manpower?.reduce((sum, { count }) => sum + (count || 0), 0) || 0} Workers
+                    <div className="flex items-center gap-6 mt-2">
+                      <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg">
+                        <Users className="h-5 w-5 text-blue-600" />
+                        <span className="font-medium text-blue-700">
+                          {String(report.manpower?.reduce((sum, { count }) => sum + count, 0) || 0).padStart(2, '0')} Workers
                         </span>
                       </div>
-                      <WeatherIcon type={report.weather?.type || 'cloudy'} />
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                      <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
+                        <WeatherIcon type={report.weather?.type || 'cloudy'} />
+                        <span className="text-sm font-medium text-gray-700 capitalize">
+                          {report.weather?.type || 'Cloudy'}
+                        </span>
+                      </div>
+                      {report.clientComments && (
+                        <div className="flex items-center text-blue-600">
+                          <MessageSquare className="h-5 w-5" />
+                        </div>
+                      )}
                     </div>
                   </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400 mt-2" />
                 </div>
 
+                {report.summary && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Summary</h4>
+                    <p className="text-sm text-gray-700 line-clamp-2">
+                      {report.summary}
+                    </p>
+                  </div>
+                )}
+
                 {report.workAreas?.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="font-medium mb-2">Work Areas</h4>
-                    <div className="space-y-2">
+                  <div className="mb-6">
+                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Work Areas</h4>
+                    <div className="space-y-2 bg-gray-50 p-3 rounded-lg">
                       {report.workAreas.map((area) => (
-                        <p key={area.id} className="text-sm text-gray-600 line-clamp-1">
-                          {area.description}
+                        <p key={area.id} className="text-sm text-gray-700 line-clamp-1">
+                          • {area.description}
                         </p>
                       ))}
                     </div>
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-2">
-                  {report.manpower?.map((trade) => (
-                    <div key={trade.id} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                      {trade.trade} ({trade.count})
-                    </div>
-                  ))}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Trades</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {report.manpower?.map((trade) => (
+                      <div 
+                        key={trade.id} 
+                        className="text-sm bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg font-medium"
+                      >
+                        {trade.trade} ({trade.count})
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>

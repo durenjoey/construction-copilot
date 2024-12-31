@@ -1,7 +1,8 @@
 export interface ProjectStatus {
   id: string
   name: string
-  description: string
+  summary: string,
+  clientComments: string,
   createdAt: string
   scope?: Scope
   proposal?: Proposal
@@ -69,7 +70,8 @@ export interface ChatMessage {
 export interface DailyReport {
   id: string
   date: string
-  description: string
+  summary: string
+  clientComments: string
   weather: {
     type: 'Sunny' | 'Cloudy' | 'Rainy' | 'Stormy'
     description: string

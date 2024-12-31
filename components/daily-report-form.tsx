@@ -11,11 +11,12 @@ import { Textarea } from 'components/ui/textarea';
 import { Alert, AlertDescription } from 'components/ui/alert';
 import { useToast } from 'hooks/use-toast';
 import { ImageUpload } from 'components/image-upload';
+import { DailyReport } from 'lib/types';
 
 interface Worker {
   id: number;
   trade: string;
-  count: string;
+  count: number;
 }
 
 interface WorkArea {
@@ -29,7 +30,7 @@ interface Photo {
 }
 
 interface Weather {
-  type: string;
+  type: 'Sunny' | 'Cloudy' | 'Rainy' | 'Stormy';
   description: string;
 }
 
@@ -82,23 +83,24 @@ const weatherTypes = [
 const ComboboxInput: React.FC<ComboboxInputProps> = ({ value, onChange, onSelect, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
-  
+
   const filteredTrades = commonTrades.filter(trade => 
-    trade.toLowerCase().includes(search.toLowerCase())
+    trade.toLowerCase().includes((search || value).toLowerCase())
   );
 
   return (
     <div className="relative">
       <Input
-        value={search}
+        value={value || search}
         onChange={(e) => {
           setSearch(e.target.value);
           onChange(e.target.value);
           setIsOpen(true);
         }}
         onFocus={() => setIsOpen(true)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
         placeholder={placeholder}
-        className="w-full"
+        className={`w-full ${value ? 'bg-blue-50 border-blue-200' : ''}`}
       />
       {isOpen && (search || filteredTrades.length > 0) && (
         <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-64 overflow-auto">
@@ -107,7 +109,6 @@ const ComboboxInput: React.FC<ComboboxInputProps> = ({ value, onChange, onSelect
               className="w-full px-4 py-2 text-left hover:bg-blue-50 text-blue-600"
               onClick={() => {
                 onSelect(search);
-                setSearch('');
                 setIsOpen(false);
               }}
             >
@@ -120,7 +121,6 @@ const ComboboxInput: React.FC<ComboboxInputProps> = ({ value, onChange, onSelect
               className="w-full px-4 py-2 text-left hover:bg-gray-50"
               onClick={() => {
                 onSelect(trade);
-                setSearch('');
                 setIsOpen(false);
               }}
             >
@@ -142,7 +142,7 @@ const Section: React.FC<SectionProps> = ({ title, children }) => (
   </Card>
 );
 
-export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) => {
+export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }): JSX.Element => {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
@@ -153,7 +153,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [notes, setNotes] = useState('');
   const [safety, setSafety] = useState('');
-  const [weather, setWeather] = useState<Weather>({
+  const [weather, setWeather] = useState<Weather | { type: ''; description: string }>({
     type: '',
     description: ''
   });
@@ -161,7 +161,9 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
   const [customCount, setCustomCount] = useState('');
   const [loading, setLoading] = useState(true);
   const [projectTitle, setProjectTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [summary, setSummary] = useState('');
+  const [clientComments, setClientComments] = useState('');
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -188,7 +190,11 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
           setNotes(data.notes || '');
           setSafety(data.safety || '');
           setWeather(data.weather || { type: '', description: '' });
-          setDescription(data.description || '');
+          setSummary(data.summary || '');
+          setClientComments(data.clientComments || '');
+          // Convert UTC date to local date for input
+          const date = new Date(data.date);
+          setReportDate(date.toISOString().split('T')[0]);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -213,13 +219,32 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
     fetchData();
   }, [reportId, projectId, toast]);
 
+  const [selectedTrade, setSelectedTrade] = useState('');
+
   const addTrade = (tradeName: string) => {
+    setSelectedTrade(tradeName);
+    setCustomTrade(tradeName);
     if (customCount) {
       setManpower([...manpower, {
         id: Date.now(),
         trade: tradeName,
-        count: customCount
+        count: parseInt(customCount)
       }]);
+      setSelectedTrade('');
+      setCustomTrade('');
+      setCustomCount('');
+    }
+  };
+
+  const handleCountChange = (count: string) => {
+    setCustomCount(count);
+    if (selectedTrade && count) {
+      setManpower([...manpower, {
+        id: Date.now(),
+        trade: selectedTrade,
+        count: parseInt(count)
+      }]);
+      setSelectedTrade('');
       setCustomTrade('');
       setCustomCount('');
     }
@@ -233,15 +258,52 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
   };
 
   const handlePhotoUpload = (imageUrl: string) => {
-    const newPhotos = [...photos, { id: Date.now(), url: imageUrl }];
-    setPhotos(newPhotos.slice(0, 6));
+    try {
+      // Validate URL format
+      new URL(imageUrl);
+      
+      const newPhoto = {
+        id: Date.now(),
+        url: imageUrl
+      };
+      
+      setPhotos(prevPhotos => {
+        const updatedPhotos = [...prevPhotos, newPhoto];
+        return updatedPhotos.slice(0, 6); // Keep max 6 photos
+      });
+    } catch (error) {
+      console.error('Invalid photo URL:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add photo. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmit = async () => {
+    // Validate required fields
     if (!weather.type) {
       toast({
         title: "Weather Required",
         description: "Please select a weather condition.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate photos
+    if (photos.some(photo => {
+      try {
+        new URL(photo.url);
+        return false;
+      } catch {
+        return true;
+      }
+    })) {
+      toast({
+        title: "Invalid Photos",
+        description: "One or more photo URLs are invalid",
         variant: "destructive",
       });
       return;
@@ -254,40 +316,44 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
       
       const method = reportId ? 'PUT' : 'POST';
 
+      // Convert date to ISO string with time set to start of day in UTC
+      const [year, month, day] = reportDate.split('-').map(Number);
+      const dateISO = new Date(Date.UTC(year, month - 1, day)).toISOString();
+
+      // Ensure weather type is one of the valid types
+      const validatedWeather: Weather = {
+        type: weather.type as Weather['type'],
+        description: weather.description
+      };
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          date: new Date().toISOString(),
-          description,
-          weather,
+          date: dateISO,
+          summary,
+          clientComments,
+          weather: validatedWeather,
           manpower,
           workAreas,
-          photos,
+          photos: photos.map(photo => ({
+            id: photo.id,
+            url: photo.url
+          })),
           notes,
           safety,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to ${reportId ? 'update' : 'submit'} daily report`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.details || `Failed to ${reportId ? 'update' : 'submit'} daily report`);
       }
 
       const updatedReport = await response.json();
       
-      // Update local state with the returned data
-      if (reportId) {
-        setManpower(updatedReport.manpower || []);
-        setWorkAreas(updatedReport.workAreas || []);
-        setPhotos(updatedReport.photos || []);
-        setNotes(updatedReport.notes || '');
-        setSafety(updatedReport.safety || '');
-        setWeather(updatedReport.weather || { type: '', description: '' });
-        setDescription(updatedReport.description || '');
-      }
-
       toast({
         title: "Success",
         description: `Daily report ${reportId ? 'updated' : 'submitted'} successfully`,
@@ -298,7 +364,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
       console.error('Error submitting daily report:', error);
       toast({
         title: "Error",
-        description: `Failed to ${reportId ? 'update' : 'submit'} daily report. Please try again.`,
+        description: error instanceof Error ? error.message : `Failed to ${reportId ? 'update' : 'submit'} daily report. Please try again.`,
         variant: "destructive",
       });
     }
@@ -315,7 +381,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
     );
   }
 
-  const totalWorkers = manpower.reduce((sum, { count }) => sum + (parseInt(count) || 0), 0);
+  const totalWorkers = manpower.reduce((sum, { count }) => sum + count, 0);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -327,14 +393,15 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
             <div className="flex gap-3">
               <Input
                 type="date"
-                defaultValue={new Date().toISOString().split('T')[0]}
+                value={reportDate}
+                onChange={(e) => setReportDate(e.target.value)}
                 className="w-32"
               />
               <Input
                 type="text"
-                placeholder="Report Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Daily Summary"
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
                 className="flex-1"
               />
             </div>
@@ -348,7 +415,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
                   variant={weather.type === label ? "default" : "outline"}
                   size="lg"
                   className="flex-1"
-                  onClick={() => setWeather({ ...weather, type: label })}
+                  onClick={() => setWeather({ ...weather, type: label as Weather['type'] })}
                 >
                   {icon}
                   <span className="ml-2">{label}</span>
@@ -391,7 +458,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
               type="number"
               placeholder="#"
               value={customCount}
-              onChange={(e) => setCustomCount(e.target.value)}
+              onChange={(e) => handleCountChange(e.target.value)}
               className="w-16"
             />
             <Button onClick={() => addTrade(customTrade)}>Add</Button>
@@ -495,6 +562,20 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }) =>
             value={safety}
             onChange={(e) => setSafety(e.target.value)}
             placeholder="Describe any safety incidents or concerns..."
+            className="w-full"
+          />
+        </Section>
+
+        <Section title="Client Comments">
+          <Alert className="bg-blue-50 mb-3">
+            <AlertDescription>
+              Record any comments or requests from the client that may affect project scope.
+            </AlertDescription>
+          </Alert>
+          <Textarea
+            value={clientComments}
+            onChange={(e) => setClientComments(e.target.value)}
+            placeholder="Document client feedback, requests, or concerns..."
             className="w-full"
           />
         </Section>

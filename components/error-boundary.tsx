@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { monitoring } from '@/lib/monitoring';
-import { Button } from '@/components/ui/button';
+import { Button } from './ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Props {
@@ -32,13 +31,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log error to monitoring system
-    monitoring.logError(error, {
-      type: 'application',
-      component: 'ErrorBoundary',
-      action: 'componentDidCatch',
-      errorInfo: monitoring.sanitizeErrorData(errorInfo),
-    });
+    // Log error to console in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error caught by ErrorBoundary:', error);
+      console.error('Error Info:', errorInfo);
+    }
   }
 
   private handleRetry = () => {
@@ -53,12 +50,23 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (!this.state.error) return;
 
     try {
-      await monitoring.logError(this.state.error, {
-        type: 'application',
-        component: 'ErrorBoundary',
-        action: 'userReport',
-        userInitiated: true,
+      // Send error to API endpoint
+      const response = await fetch('/api/error-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: this.state.error.message,
+          stack: this.state.error.stack,
+          type: 'client',
+          timestamp: new Date().toISOString(),
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to report error');
+      }
 
       // Show feedback to user
       alert('Error has been reported. Thank you for your feedback!');
@@ -127,18 +135,6 @@ export function withErrorBoundary<P extends object>(
       </ErrorBoundary>
     );
   };
-}
-
-// Hook for programmatic error reporting
-export function useErrorReport() {
-  return React.useCallback(async (error: Error, context?: Record<string, any>) => {
-    await monitoring.logError(error, {
-      type: 'application',
-      component: 'useErrorReport',
-      action: 'manualReport',
-      ...context,
-    });
-  }, []);
 }
 
 // Component for wrapping async components

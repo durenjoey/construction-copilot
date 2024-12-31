@@ -4,6 +4,24 @@ import { authOptions } from 'lib/auth'
 import { adminDb } from 'lib/firebase-admin'
 import { DailyReport } from 'lib/types'
 
+const validWeatherTypes = ['Sunny', 'Cloudy', 'Rainy', 'Stormy'] as const;
+
+// Validate date format
+const isValidDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date instanceof Date && !isNaN(date.getTime());
+};
+
+// Validate URL format
+const isValidUrl = (urlString: string) => {
+  try {
+    new URL(urlString);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // GET /api/daily-reports?projectId=xxx
 export async function GET(req: NextRequest) {
   try {
@@ -71,10 +89,43 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await req.json()
+
+    // Validate required fields
+    if (!data.date || !isValidDate(data.date)) {
+      return NextResponse.json({ 
+        error: 'Invalid date format'
+      }, { status: 400 });
+    }
+
+    // Validate weather type
+    if (!data.weather?.type || !validWeatherTypes.includes(data.weather.type)) {
+      return NextResponse.json({ 
+        error: 'Invalid weather type. Must be one of: Sunny, Cloudy, Rainy, Stormy'
+      }, { status: 400 });
+    }
+
+    // Validate photos
+    if (data.photos) {
+      if (!Array.isArray(data.photos)) {
+        return NextResponse.json({ 
+          error: 'Photos must be an array'
+        }, { status: 400 });
+      }
+
+      for (const photo of data.photos) {
+        if (!photo.url || !isValidUrl(photo.url)) {
+          return NextResponse.json({ 
+            error: 'Invalid photo URL format'
+          }, { status: 400 });
+        }
+      }
+    }
+
     const now = new Date().toISOString()
 
     const dailyReport: Omit<DailyReport, 'id'> = {
       ...data,
+      photos: data.photos || [],
       createdAt: now,
       updatedAt: now
     }

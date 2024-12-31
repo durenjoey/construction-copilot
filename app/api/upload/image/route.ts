@@ -27,30 +27,40 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    const fileName = `daily-reports/${session.user.id}/${Date.now()}-${file.name}`
+    const timestamp = Date.now()
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const fileName = `daily-reports/${session.user.id}/${timestamp}.${extension}`
     
     // Upload to Firebase Storage
     const bucket = adminStorage.bucket()
     const fileRef = bucket.file(fileName)
+
+    // Upload with content type
     await fileRef.save(buffer, {
       metadata: {
-        contentType: file.type
+        contentType: file.type,
+        metadata: {
+          firebaseStorageDownloadTokens: timestamp.toString()
+        }
       }
     })
 
     // Make the file publicly accessible
     await fileRef.makePublic()
 
-    // Get the public URL
-    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`
+    // Get the direct download URL
+    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media&token=${timestamp}`
 
     return NextResponse.json({
-      url: publicUrl,
+      url: downloadUrl,
       name: file.name,
       type: file.type
     })
   } catch (error) {
     console.error('Error uploading image:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return new NextResponse(
+      error instanceof Error ? error.message : 'Internal Server Error', 
+      { status: 500 }
+    )
   }
 }

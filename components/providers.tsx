@@ -2,12 +2,18 @@
 
 import { ThemeProvider } from 'next-themes'
 import { SessionProvider } from 'next-auth/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false)
+
   useEffect(() => {
-    console.log('Providers mounted')
+    setMounted(true)
   }, [])
+
+  if (!mounted) {
+    return null
+  }
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

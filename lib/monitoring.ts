@@ -3,7 +3,7 @@ interface ErrorDetails {
   stack?: string;
   context?: Record<string, any>;
   severity: 'low' | 'medium' | 'high';
-  type: 'security' | 'application' | 'api' | 'database' | 'auth';
+  type: 'security' | 'application' | 'api' | 'database' | 'auth' | 'client';
   timestamp: string;
   environment: string;
 }
@@ -47,8 +47,8 @@ export async function logError(error: Error | unknown, context: Record<string, a
     });
   }
 
-  // Database logging
-  if (config.logToDatabase) {
+  // Only attempt database logging on the server side
+  if (config.logToDatabase && typeof window === 'undefined') {
     try {
       const { adminDb } = await import('./firebase-admin');
       await adminDb.collection('errors').add(errorDetails);
@@ -57,12 +57,7 @@ export async function logError(error: Error | unknown, context: Record<string, a
     }
   }
 
-  // File logging
-  if (config.logToFile) {
-    // Implement file logging if needed
-  }
-
-  // Send to external monitoring service
+  // Send to external monitoring service in production
   if (process.env.NODE_ENV === 'production') {
     await sendToMonitoring(errorDetails);
   }
@@ -108,25 +103,35 @@ function getErrorType(error: Error | unknown, context: Record<string, any>): Err
     }
   }
 
-  return 'application';
+  return typeof window === 'undefined' ? 'application' : 'client';
 }
 
 async function sendToMonitoring(errorDetails: ErrorDetails) {
-  // Example: Send to monitoring service
-  // if (process.env.MONITORING_API_KEY) {
-  //   try {
-  //     await fetch(process.env.MONITORING_API_ENDPOINT, {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //         'Authorization': `Bearer ${process.env.MONITORING_API_KEY}`,
-  //       },
-  //       body: JSON.stringify(errorDetails),
-  //     });
-  //   } catch (error) {
-  //     console.error('Failed to send error to monitoring service:', error);
-  //   }
-  // }
+  // For client-side errors, send to error reporting API endpoint
+  if (typeof window !== 'undefined') {
+    try {
+      await fetch('/api/error-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(errorDetails),
+      });
+    } catch (error) {
+      console.error('Failed to send error to monitoring service:', error);
+    }
+    return;
+  }
+
+  // For server-side errors, log to database directly
+  if (config.logToDatabase) {
+    try {
+      const { adminDb } = await import('./firebase-admin');
+      await adminDb.collection('errors').add(errorDetails);
+    } catch (error) {
+      console.error('Failed to log server error:', error);
+    }
+  }
 }
 
 // Rate limiting for error logging
