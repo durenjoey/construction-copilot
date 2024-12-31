@@ -3,7 +3,7 @@ import { authOptions } from 'lib/auth';
 import { adminDb } from 'lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import { Timestamp } from 'firebase-admin/firestore';
-import { LessonLearned, Lesson } from 'lib/types';
+import { LessonLearned } from 'lib/types';
 
 export async function POST(request: Request) {
   try {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
     // Convert client-side lesson to server-side lesson with Timestamp
     const now = Timestamp.now();
-    const serverLesson: Lesson = {
+    const serverLesson: LessonLearned & { timestamp: any } = {
       ...lesson,
       timestamp: now,
       createdAt: lesson.createdAt

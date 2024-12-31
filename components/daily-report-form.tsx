@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Send, Plus, X, Cloud, Sun, CloudRain, CloudLightning } from 'lucide-react';
 import { Card, CardContent } from 'components/ui/card';
 import { Button } from 'components/ui/button';
@@ -112,7 +113,7 @@ const ComboboxInput: React.FC<ComboboxInputProps> = ({ value, onChange, onSelect
                 setIsOpen(false);
               }}
             >
-              Add "{search}"
+              Add &quot;{search}&quot;
             </button>
           )}
           {filteredTrades.map(trade => (
@@ -522,10 +523,13 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ reportId }): J
           <div className="grid grid-cols-3 gap-2">
             {photos.map((photo) => (
               <div key={photo.id} className="relative aspect-square bg-gray-100 rounded-lg">
-                <img 
+                <Image 
                   src={photo.url}
                   alt="site progress"
                   className="w-full h-full object-cover rounded-lg"
+                  width={200}
+                  height={200}
+                  unoptimized
                 />
                 <Button
                   variant="ghost"
